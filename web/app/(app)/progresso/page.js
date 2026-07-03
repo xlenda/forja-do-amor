@@ -1,0 +1,133 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { readStreak, computeBadges, monthlyRecap } from "@/lib/activity";
+
+const MESES_FULL = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+function mesLabelEs() {
+  const d = new Date();
+  return `${MESES_FULL[d.getMonth()]} de ${d.getFullYear()}`;
+}
+
+// Animación de conteo — pequeño toque de interactividad, sin datos nuevos:
+// solo anima visualmente el número que ya calculamos hacia su valor final.
+function CountUp({ value, duration = 900 }) {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    let raf;
+    const start = performance.now();
+    const to = Number(value) || 0;
+
+    function tick(now) {
+      const elapsed = now - start;
+      const progress = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(to * eased));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    }
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+
+  return display;
+}
+
+function ProgressoInner() {
+  const params = useSearchParams();
+  const voce = params.get("voce") || "Tú";
+  const amor = params.get("amor") || "Tu amor";
+
+  const [mounted, setMounted] = useState(false);
+  const [streak, setStreak] = useState({ count: 0, longest: 0 });
+  const [badges, setBadges] = useState([]);
+  const [recap, setRecap] = useState(null);
+
+  useEffect(() => {
+    setMounted(true);
+    setStreak(readStreak(voce, amor));
+    setBadges(computeBadges(voce, amor));
+    setRecap(monthlyRecap(voce, amor));
+  }, [voce, amor]);
+
+  const back = new URLSearchParams();
+  ["voce", "amor", "sa", "sb"].forEach((k) => params.get(k) && back.set(k, params.get(k)));
+
+  const desbloqueadas = badges.filter((b) => b.unlocked).length;
+  const todasDesbloqueadas = mounted && badges.length > 0 && desbloqueadas === badges.length;
+
+  return (
+    <main className="wrap">
+      <div className="couple-header">
+        <span className="badge">📊 Nuestro progreso</span>
+        <div className="couple-names">{voce} &amp; {amor}</div>
+        <div className="couple-meta">el camino de ustedes, en números</div>
+      </div>
+
+      {mounted && (
+        <div className="card" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 40 }}>🔥</div>
+          <div className="pct" style={{ fontSize: 36 }}><CountUp value={streak.count} /></div>
+          {streak.count > 0 ? (
+            <p className="muted">{streak.count === 1 ? "día seguido" : "días seguidos"} cuidando la relación</p>
+          ) : (
+            <p className="muted">Cada día que cuidan el uno del otro cuenta. Empiecen hoy, {voce} y {amor} 💛</p>
+          )}
+          {streak.longest > streak.count && (
+            <p className="disclaimer" style={{ marginTop: 6 }}>Récord de ustedes: {streak.longest} días seguidos.</p>
+          )}
+        </div>
+      )}
+
+      {mounted && recap && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="section-title" style={{ marginTop: 0, textTransform: "capitalize" }}>Resumen de {mesLabelEs()}</div>
+          <p className="compat-line">📸 {recap.memoriesThisMonth} {recap.memoriesThisMonth === 1 ? "recuerdo guardado" : "recuerdos guardados"} este mes</p>
+          <p className="compat-line">⏳ {recap.capsulesSealedThisMonth} {recap.capsulesSealedThisMonth === 1 ? "cápsula sellada" : "cápsulas selladas"} este mes</p>
+          <p className="compat-line">💞 {recap.reconectarChecks} misiones de reconexión completadas</p>
+          <p className="compat-line">🎯 {recap.agirDoneCount} gestos del desafío de 7 días realizados</p>
+        </div>
+      )}
+
+      <div className="section-title">Logros ({desbloqueadas}/{badges.length})</div>
+      {mounted && badges.length > 0 && (
+        <div className="progress">
+          <i style={{ width: `${(desbloqueadas / badges.length) * 100}%` }} />
+        </div>
+      )}
+      {todasDesbloqueadas && (
+        <p className="compat-line" style={{ textAlign: "center", marginTop: -8, marginBottom: 14 }}>
+          🎉 ¡Desbloquearon todos los logros, {voce} y {amor}! Sigan escribiendo la historia de ustedes.
+        </p>
+      )}
+      <div className="grid2">
+        {badges.map((b) => (
+          <div key={b.id} className="card" style={{ opacity: b.unlocked ? 1 : 0.45, textAlign: "center" }}>
+            <div style={{ fontSize: 30 }}>{b.unlocked ? b.emoji : "🔒"}</div>
+            <div className="section-title" style={{ fontSize: 18, margin: "6px 0 4px" }}>{b.title}</div>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>{b.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: 18 }}>
+        <Link className="btn btn-ghost" href={`/hub?${back.toString()}`}>Volver a la app</Link>
+      </div>
+      <footer>Forja del Amor · prototipo</footer>
+    </main>
+  );
+}
+
+export default function Progresso() {
+  return (
+    <Suspense fallback={<main className="wrap"><p className="muted">Cargando...</p></main>}>
+      <ProgressoInner />
+    </Suspense>
+  );
+}

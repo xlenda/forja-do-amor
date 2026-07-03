@@ -1,0 +1,8 @@
+web/node_modules
+web/.next
+web/out
+web/build
+.DS_Store
+*.pem
+.env*.local
+.vercel
