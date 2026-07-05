@@ -28,8 +28,6 @@ function MapaInner() {
   const amor = params.get("amor") || "Tu amor";
   const sa = params.get("sa") || "";
   const sb = params.get("sb") || "";
-  const conflicto = params.get("cf") || "";
-  const desafioClave = params.get("df") || "";
 
   const compat = sa && sb ? compatibility(sa, sb) : null;
   const pct = sa && sb ? compatPercent(sa, sb) : null;
@@ -49,14 +47,13 @@ function MapaInner() {
   }, [voce, amor]);
 
   const deseo = sellado?.deseo;
+  const seccionesAbiertas = leadEnviado ? 1 : 0;
 
   const secciones = [
     {
       icon: "🌙",
       title: "Luna y conflicto",
-      abierto: conflicto
-        ? `Ustedes dijeron que ${conflicto === "Los dos por igual" ? "los dos suelen dar" : conflicto === "Todavía ninguno" ? "todavía ninguno da" : `${conflicto} suele dar`} el primer paso cuando hay conflicto${compat ? ` — y eso se cruza con cómo reacciona cada Luna` : ""}.`
-        : compat
+      abierto: compat
         ? `Cuando discuten, ${voce} y ${amor} no reaccionan igual: una Luna quiere resolver hablando ya, la otra necesita espacio antes.`
         : `Cuando discuten, no reaccionan igual — y eso no es un problema, es información.`,
       bloqueado: "El gesto exacto que desarma la pelea entre ustedes — y por qué casi siempre empieza por lo mismo.",
@@ -64,9 +61,7 @@ function MapaInner() {
     {
       icon: "💬",
       title: "Cómo se comunican",
-      abierto: desafioClave
-        ? `Ustedes marcaron “${desafioClave}” como el desafío que más quieren resolver — y eso casi siempre empieza en cómo ${voce} y ${amor} se comunican${compat ? ` entre ${compat.elementoA} y ${compat.elementoB}` : ""}.`
-        : compat
+      abierto: compat
         ? `Entre ${compat.elementoA} y ${compat.elementoB} hay un tema en el que siempre se enredan al hablar, y otro en el que se entienden sin decir una palabra.`
         : `Hay un tema en el que siempre se enredan al hablar, y otro en el que se entienden sin decir una palabra.`,
       bloqueado: "Las 3 frases que a esta combinación le funcionan para no terminar discutiendo por un malentendido.",
@@ -89,7 +84,7 @@ function MapaInner() {
 
   function irAPlanes() {
     const q = new URLSearchParams();
-    ["voce", "amor", "sa", "sb", "cf", "df", "en"].forEach((k) => params.get(k) && q.set(k, params.get(k)));
+    ["voce", "amor", "sa", "sb", "en"].forEach((k) => params.get(k) && q.set(k, params.get(k)));
     router.push(`/planos?${q.toString()}`);
   }
 
@@ -118,37 +113,41 @@ function MapaInner() {
       </p>
 
       {compat && (
-        <div className="compat-box" style={{ marginTop: 16 }}>
-          <div className="pct"><CountUp to={pct} />%</div>
-          <div className="badge" style={{ marginTop: 10 }}>compatibilidad de la pareja</div>
-          <p className="compat-line" style={{ marginTop: 10 }}><b>Lo que más los une:</b> {compat.forte}</p>
+        <div className="compat-box card-elevated" style={{ marginTop: 16 }}>
+          <span className="overline">Compatibilidad de la pareja</span>
+          <div className="pct" style={{ marginTop: 4 }}><CountUp to={pct} />%</div>
+          <p className="compat-line" style={{ marginTop: 12 }}><b>Lo que más los une:</b> {compat.forte}</p>
         </div>
       )}
 
       {sellado?.memoria && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div className="section-title" style={{ textAlign: "center", margin: "0 0 10px" }}>Lo que ustedes sellaron</div>
-          <p className="compat-line" style={{ textAlign: "center", fontStyle: "italic" }}>“{sellado.memoria}”</p>
+        <div className="card card-1" style={{ marginTop: 14, textAlign: "center" }}>
+          <span className="overline">Ya sellado</span>
+          <div className="section-title" style={{ margin: "0 0 10px" }}>Lo que ustedes sellaron</div>
+          <p className="compat-line" style={{ fontStyle: "italic" }}>“{sellado.memoria}”</p>
           {sellado.inicio && (
-            <p className="muted" style={{ textAlign: "center" }}>
+            <p className="muted">
               El comienzo de {voce} &amp; {amor}: {new Date(sellado.inicio).toLocaleDateString("es")}
             </p>
           )}
           {sellado.deseo && (
-            <p className="compat-line" style={{ textAlign: "center" }}>
+            <p className="compat-line">
               <b>Su deseo para este año:</b> {sellado.deseo}
             </p>
           )}
         </div>
       )}
 
-      <div className="section-title" style={{ marginTop: 30 }}>Cuatro partes más de su mapa</div>
+      <div className="section-head">
+        <span className="section-head-title">Cuatro partes más de su mapa</span>
+        <span className="section-head-action">{seccionesAbiertas}/4 abiertas</span>
+      </div>
 
       <div className="reveal-stack">
         {secciones.map((s, i) => {
           const desbloqueada = leadEnviado && i === 0;
           return (
-            <div className="card map-index-card" key={s.title}>
+            <div className="card card-2 map-index-card" key={s.title}>
               <div className="idx-head">
                 <span className="idx-icon">{s.icon}</span>
                 <span className="idx-title">{s.title}</span>
@@ -177,13 +176,25 @@ function MapaInner() {
 
       <div className="map-unlock-block">
         <div className="locked-seal" style={{ position: "static", transform: "none", margin: "0 auto 16px" }}>🔒</div>
-        <h3 style={{ fontStyle: "italic", fontSize: 22, color: "var(--gold-bright)" }}>
+        <span className="overline">Última parte del mapa</span>
+        <h3 style={{ fontStyle: "italic", fontSize: 22, color: "var(--gold-bright)", marginTop: 4 }}>
           Las cuatro revelaciones están listas
         </h3>
-        <p className="muted" style={{ margin: "10px auto 20px", maxWidth: 440 }}>
-          Estas cuatro partes ya están escritas para ustedes, pero todavía cerradas: la Luna y sus
-          conflictos, cómo se comunican, su intimidad y hacia dónde crecen como pareja. Ya pusieron
-          lo más difícil: tiempo, y un recuerdo verdadero. Esto es el resto de la historia.
+        <p className="muted" style={{ margin: "10px auto 4px", maxWidth: 440 }}>
+          Estas cuatro partes ya están escritas para ustedes, pero todavía cerradas:
+        </p>
+
+        <div className="feature-list" style={{ maxWidth: 340, margin: "14px auto 6px", textAlign: "left" }}>
+          {secciones.map((s) => (
+            <div className="feature-item" key={`lock-${s.title}`}>
+              <div className="feature-item-icon">{s.icon}</div>
+              <div className="feature-item-text"><b>{s.title}</b><span>Todavía cerrada</span></div>
+            </div>
+          ))}
+        </div>
+
+        <p className="muted" style={{ margin: "6px auto 20px", maxWidth: 440 }}>
+          Ya pusieron lo más difícil: tiempo, y un recuerdo verdadero. Esto es el resto de la historia.
         </p>
 
         {!leadEnviado && (

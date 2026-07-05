@@ -584,3 +584,188 @@ button.zcell, button.tarot-card {
 .build-strip { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 6px auto 4px; max-width: 520px; }
 .chip { font-size: 11px; letter-spacing: .06em; color: var(--gold); background: rgba(212,175,55,.1); border: 1px solid rgba(212,175,55,.25); padding: 5px 12px; border-radius: 999px; font-weight: 600; }
 @keyframes traySlotPulse { 0%, 100% { box-shadow: 0 0 0 rgba(212,175,55,0); } 50% { box-shadow: var(--glow-gold); } }
+
+/* ===== Sistema de design v2 — hierarquia, tipografia, espaçamento ===== */
+:root {
+  --fs-display: 3rem;
+  --fs-h1: 2rem;
+  --fs-h2: 1.5rem;
+  --fs-h3: 1.25rem;
+  --fs-body-lg: 1rem;
+  --fs-body: 0.875rem;
+  --fs-caption: 0.75rem;
+  --fs-overline: 0.6875rem;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --sp-5: 32px;
+  --sp-6: 48px;
+
+  --surface-elevated: #0d0619;
+  --surface-overlay: #1a0f2e;
+  --border-subtle: rgba(255,255,255,.08);
+}
+
+.overline {
+  font-family: var(--sans);
+  font-size: var(--fs-overline);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 700;
+  color: var(--gold);
+  display: block;
+  margin-bottom: var(--sp-1);
+}
+
+.card-elevated {
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  border-color: var(--border-subtle);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--sp-5) var(--sp-3);
+}
+.empty-state-icon {
+  font-size: 40px;
+  opacity: .6;
+  margin-bottom: var(--sp-2);
+  display: block;
+}
+.empty-state-title {
+  font-family: var(--serif);
+  font-size: var(--fs-h3);
+  color: var(--ivory);
+  margin-bottom: var(--sp-1);
+}
+.empty-state-desc {
+  font-size: var(--fs-body);
+  color: var(--ivory-dim);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.09) 37%, rgba(255,255,255,.04) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 8px;
+  display: block;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* ===== Sistema de design v3 — profundidade real, não só um nome de classe ===== */
+
+/* Elevação em 3 camadas — cada card sabe seu peso na página */
+.card-1 {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+.card-2 {
+  background: linear-gradient(160deg, rgba(31,13,61,0.6), rgba(19,6,42,0.4));
+  border: 1px solid rgba(212,175,55,0.18);
+  border-radius: 22px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+}
+.card-3 {
+  background: linear-gradient(160deg, rgba(212,175,55,.16), rgba(31,13,61,.55));
+  border: 1px solid rgba(212,175,55,.5);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4), 0 0 50px rgba(212,175,55,.16);
+}
+
+/* Cabeçalho de seção com divisor — substitui repetir .card pra tudo */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+.section-head:first-child { margin-top: var(--sp-3); }
+.section-head-title { font-family: var(--serif); font-style: italic; font-size: var(--fs-h2); color: var(--ivory); }
+@media (max-width: 380px) {
+  .section-head-title { font-size: var(--fs-h3); }
+}
+.section-head-action { font-size: var(--fs-caption); color: var(--gold); white-space: nowrap; }
+
+/* Anel de progreso radial (CSS puro, sem imagem) — pra streak/badges/racha */
+.ring {
+  --ring-size: 96px;
+  --ring-pct: 0;
+  width: var(--ring-size); height: var(--ring-size);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: conic-gradient(var(--gold-bright) calc(var(--ring-pct) * 1%), rgba(255,255,255,.08) 0);
+  position: relative;
+  transition: background 0.6s ease;
+}
+.ring::before {
+  content: ""; position: absolute; inset: 6px; border-radius: 50%;
+  background: var(--surface-elevated);
+}
+.ring-value {
+  position: relative; z-index: 1;
+  font-family: var(--serif); font-size: 1.75rem; font-weight: 600; color: var(--gold-bright);
+  text-shadow: 0 0 16px rgba(212,175,55,.5);
+  line-height: 1;
+}
+.ring-sm { --ring-size: 64px; }
+.ring-sm .ring-value { font-size: 1.1rem; }
+
+/* Faixa de estatísticas lado a lado — em vez de badges soltos */
+.stat-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.stat-row .stat { flex: 1 1 80px; text-align: center; padding: var(--sp-2); min-width: 0; }
+.stat-value { font-family: var(--serif); font-size: var(--fs-h1); color: var(--gold-bright); line-height: 1; }
+.stat-label { font-size: var(--fs-caption); color: var(--ivory-dim); margin-top: var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-divider { width: 1px; background: var(--border-subtle); margin: var(--sp-1) 0; }
+@media (max-width: 400px) {
+  .stat-value { font-size: var(--fs-h2); }
+  .stat-divider { display: none; }
+}
+
+/* Botões — variantes com peso claro (primário/secundário/terciário) */
+.btn-sm { padding: 10px 20px; font-size: 12px; }
+.btn-block { display: block; width: 100%; text-align: center; }
+.btn-tertiary {
+  background: none; border: none; color: var(--ivory-dim);
+  font-family: var(--sans); font-size: var(--fs-body); text-decoration: underline;
+  cursor: pointer; padding: 4px;
+}
+.btn-tertiary:hover { color: var(--gold); }
+
+/* Lista de itens com ícone — substitui <li> genérico por linha com peso visual */
+.feature-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.feature-item { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.feature-item-icon {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(212,175,55,.1); border: 1px solid rgba(212,175,55,.25);
+  display: grid; place-items: center; font-size: 17px;
+}
+.feature-item-text { flex: 1; }
+.feature-item-text b { color: var(--ivory); display: block; margin-bottom: 2px; }
+.feature-item-text span { color: var(--ivory-dim); font-size: var(--fs-body); }
+.feature-item-lock { flex: 0 0 auto; align-self: center; margin-left: auto; font-size: 15px; opacity: .55; }
+
+/* Cabeçalho de casal — versão mais "app aberto", menos "landing" */
+.couple-header-v2 {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+}
+.couple-avatar {
+  flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(160deg, var(--bg-elev), var(--bg-mid));
+  border: 1.5px solid var(--gold); display: grid; place-items: center;
+  font-family: var(--serif); font-size: 20px; color: var(--gold-bright);
+}
+.couple-header-v2 .couple-names { font-size: var(--fs-h2); text-align: left; }
+.couple-header-v2 .couple-meta { color: var(--ivory-dim); font-weight: 400; margin-top: 0; font-size: var(--fs-caption); }

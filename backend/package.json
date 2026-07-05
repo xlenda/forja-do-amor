@@ -1,0 +1,15 @@
+{
+  "name": "forja-do-amor-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend do Forja del Amor — assinatura recorrente com processador de pagamento plugável (Hotmart como primeira implementação).",
+  "main": "src/http/server.js",
+  "scripts": {
+    "start": "node --env-file=.env src/http/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

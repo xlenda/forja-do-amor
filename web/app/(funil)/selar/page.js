@@ -60,7 +60,7 @@ function SelarInner() {
       salvarDeVerdade();
       setSelando(false);
       setSelado(true);
-    }, 1600);
+    }, 900);
   }
 
   function handleSelar() {
@@ -95,13 +95,13 @@ function SelarInner() {
 
   useEffect(() => () => phaseTimer.current && clearInterval(phaseTimer.current), []);
 
-  function irAlMapa() {
+  function irAlHub() {
     setCanalizando(true);
     setTimeout(() => {
       const q = new URLSearchParams();
-      ["voce", "amor", "sa", "sb", "cf", "df", "en"].forEach((k) => params.get(k) && q.set(k, params.get(k)));
-      router.push(`/mapa?${q.toString()}`);
-    }, 1800);
+      ["voce", "amor", "sa", "sb", "en"].forEach((k) => params.get(k) && q.set(k, params.get(k)));
+      router.push(`/hub?${q.toString()}`);
+    }, 900);
   }
 
   if (selando) {
@@ -120,7 +120,7 @@ function SelarInner() {
       <main className="wrap">
         <div className="loading">
           <div className="orb">✴</div>
-          <h2>Canalizando su mapa<span className="dots" /></h2>
+          <h2>Abriendo su app<span className="dots" /></h2>
         </div>
       </main>
     );
@@ -129,21 +129,29 @@ function SelarInner() {
   if (selado) {
     return (
       <main className="wrap">
-        <div className="line-label"><span>Capítulo sellado</span></div>
-        <div className="bigstar">✴</div>
-        <h1 className="reveal-title" style={{ fontSize: 30 }}>Su primer capítulo quedó sellado.</h1>
-        <p style={{ textAlign: "center", marginBottom: 6 }}>
-          <span className="badge">🛡️ Guardianes de su propia historia</span>
-        </p>
-        <p className="reveal-sub" style={{ maxWidth: 480, margin: "0 auto 20px" }}>
-          El recuerdo y el deseo de {voce} y {amor} ya están guardados. Dentro de la app, ese deseo vuelve a ustedes el día que elijan — como una cápsula que se abre sola. Antes de ver su mapa, una pausa juntos.
-        </p>
+        <div>
+          <div className="line-label"><span>Capítulo sellado</span></div>
+          <div className="bigstar">✴</div>
+          <h1 className="reveal-title" style={{ fontSize: 30 }}>Su primer capítulo quedó sellado.</h1>
+          <p style={{ textAlign: "center", marginBottom: 6 }}>
+            <span className="badge">🛡️ Guardianes de su propia historia</span>
+          </p>
+          <p className="reveal-sub" style={{ maxWidth: 480, margin: "0 auto" }}>
+            El recuerdo y el deseo de {voce} y {amor} ya están guardados. Dentro de la app, ese deseo vuelve a ustedes el día que elijan — como una cápsula que se abre sola. Antes de entrar, una pausa juntos.
+          </p>
+        </div>
 
-        <div className="card breath-wrap">
+        <div className="section-head">
+          <span className="section-head-title">Antes de entrar</span>
+          <span className="section-head-action">✷ un minuto juntos</span>
+        </div>
+
+        <div className="card card-3 breath-wrap">
+          <span className="overline" style={{ textAlign: "center" }}>Ritual de respiración</span>
           {!ritualStarted ? (
             <>
               <p className="compat-line" style={{ maxWidth: 420, margin: "0 auto" }}>
-                Antes de abrir su mapa, hagan una pausa juntos.
+                Antes de entrar a su app, hagan una pausa juntos.
               </p>
               <p className="muted" style={{ maxWidth: 420, margin: "8px auto 0" }}>
                 Van a respirar tres veces, a su ritmo. No promete nada mágico: solo los trae a los dos al mismo momento.
@@ -174,8 +182,8 @@ function SelarInner() {
                   Marcar respiración
                 </button>
               ) : (
-                <button className="btn" style={{ marginTop: 26 }} onClick={irAlMapa}>
-                  Ahora sí: aquí está su mapa →
+                <button className="btn" style={{ marginTop: 26 }} onClick={irAlHub}>
+                  Ahora sí: entrar a nuestra app →
                 </button>
               )}
             </>
@@ -196,7 +204,7 @@ function SelarInner() {
         Tres cosas simples — y ya empiezan la línea de tiempo de {voce} &amp; {amor}.
       </p>
 
-      <div className="form-wrap">
+      <div className="form-wrap card-3">
         <div className="field">
           <label>Un recuerdo que vale la pena guardar</label>
           <textarea
@@ -221,12 +229,12 @@ function SelarInner() {
 
       <div style={{ textAlign: "center", marginTop: 8 }}>
         <button className="btn" onClick={handleSelar}>Sellar nuestro capítulo ✷</button>
+        {aviso && (
+          <p role="alert" aria-live="polite" style={{ color: "var(--gold-bright)", textAlign: "center", marginTop: 8, fontSize: 14 }}>
+            {aviso}
+          </p>
+        )}
       </div>
-      {aviso && (
-        <p role="alert" aria-live="polite" style={{ color: "var(--gold-bright)", textAlign: "center", marginTop: 8, fontSize: 14 }}>
-          {aviso}
-        </p>
-      )}
       <footer>Forja del Amor · prototipo</footer>
     </main>
   );

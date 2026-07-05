@@ -122,59 +122,79 @@ function RetrospectivaInner() {
       </div>
 
       {semMemorias && (
-        <div className="card" style={{ textAlign: "center" }}>
-          <p className="compat-line">El año de ustedes todavía se está escribiendo — empiecen a guardar recuerdos en Nosotros 💛</p>
-          <Link className="btn" style={{ marginTop: 10 }} href={`/timeline${qs()}`}>Guardar el primer recuerdo →</Link>
+        <div className="empty-state">
+          <span className="empty-state-icon">🌱</span>
+          <div className="empty-state-title">El año de ustedes todavía se está escribiendo</div>
+          <p className="empty-state-desc">Empiecen a guardar recuerdos en Nosotros 💛</p>
+          <Link className="btn" style={{ marginTop: 16 }} href={`/timeline${qs()}`}>Guardar el primer recuerdo →</Link>
         </div>
       )}
 
       {mounted && recap && !semMemorias && (
         <>
-          <div className="card" style={{ textAlign: "center" }}>
+          <div className="card card-3" style={{ textAlign: "center" }}>
+            <span className="overline">Total del año</span>
             <div className="pct"><CountUp value={recap.memoriesCount} /></div>
-            <p className="muted">{recap.memoriesCount === 1 ? "recuerdo guardado" : "recuerdos guardados"} en {recap.year}</p>
+            <p className="muted" style={{ marginTop: 6 }}>{recap.memoriesCount === 1 ? "recuerdo guardado" : "recuerdos guardados"} en {recap.year}</p>
           </div>
 
-          <div className="grid2" style={{ marginTop: 14 }}>
-            <div className="card" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28 }}>⏳</div>
-              <div className="section-title" style={{ margin: "6px 0 4px" }}><CountUp value={recap.capsulesSealedThisYear} /></div>
-              <p className="muted" style={{ margin: 0 }}>{recap.capsulesSealedThisYear === 1 ? "cápsula sellada" : "cápsulas selladas"} este año</p>
-            </div>
-
-            <div className="card" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28 }}>💞</div>
-              <div className="section-title" style={{ margin: "6px 0 4px" }}><CountUp value={reconectarChecks} /></div>
-              <p className="muted" style={{ margin: 0 }}>misiones de reconexión completadas desde el inicio</p>
-            </div>
-
-            <div className="card" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28 }}>🔥</div>
-              <div className="section-title" style={{ margin: "6px 0 4px" }}><CountUp value={streak.longest} /></div>
-              <p className="muted" style={{ margin: 0 }}>racha más larga de días seguidos</p>
-            </div>
-
-            {recap.oldest && (
-              <div className="card" style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 28 }}>🌱</div>
-                <div className="section-title" style={{ margin: "6px 0 4px" }}>{recap.oldest.title}</div>
-                <p className="muted" style={{ margin: 0 }}>recuerdo más antiguo del año · {fmt(recap.oldest.date)}</p>
+          <div className="section-head">
+            <span className="section-head-title">Resumen del año</span>
+          </div>
+          <div className="card card-2">
+            <div className="feature-list">
+              <div className="feature-item">
+                <div className="feature-item-icon">⏳</div>
+                <div className="feature-item-text">
+                  <b><CountUp value={recap.capsulesSealedThisYear} /></b>
+                  <span>{recap.capsulesSealedThisYear === 1 ? "cápsula sellada" : "cápsulas selladas"} este año</span>
+                </div>
               </div>
-            )}
 
-            {recap.newest && recap.newest.id !== recap.oldest?.id && (
-              <div className="card" style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 28 }}>🌟</div>
-                <div className="section-title" style={{ margin: "6px 0 4px" }}>{recap.newest.title}</div>
-                <p className="muted" style={{ margin: 0 }}>recuerdo más reciente del año · {fmt(recap.newest.date)}</p>
+              <div className="feature-item">
+                <div className="feature-item-icon">💞</div>
+                <div className="feature-item-text">
+                  <b><CountUp value={reconectarChecks} /></b>
+                  <span>misiones de reconexión completadas desde el inicio</span>
+                </div>
               </div>
-            )}
+
+              <div className="feature-item">
+                <div className="feature-item-icon">🔥</div>
+                <div className="feature-item-text">
+                  <b><CountUp value={streak.longest} /></b>
+                  <span>racha más larga de días seguidos</span>
+                </div>
+              </div>
+
+              {recap.oldest && (
+                <div className="feature-item">
+                  <div className="feature-item-icon">🌱</div>
+                  <div className="feature-item-text">
+                    <b>{recap.oldest.title}</b>
+                    <span>recuerdo más antiguo del año · {fmt(recap.oldest.date)}</span>
+                  </div>
+                </div>
+              )}
+
+              {recap.newest && recap.newest.id !== recap.oldest?.id && (
+                <div className="feature-item">
+                  <div className="feature-item-icon">🌟</div>
+                  <div className="feature-item-text">
+                    <b>{recap.newest.title}</b>
+                    <span>recuerdo más reciente del año · {fmt(recap.newest.date)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="card" style={{ textAlign: "center", marginTop: 16 }}>
-            <span className="badge">🎁 Guarden este año</span>
-            <p className="muted" style={{ marginTop: 10 }}>Compartan la retrospectiva de ustedes con quienes celebran su historia.</p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 6 }}>
+          <div className="section-head">
+            <span className="section-head-title">🎁 Guarden este año</span>
+          </div>
+          <div className="card card-2" style={{ textAlign: "center" }}>
+            <p className="muted">Compartan la retrospectiva de ustedes con quienes celebran su historia.</p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 10 }}>
               <a
                 className="btn"
                 href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}

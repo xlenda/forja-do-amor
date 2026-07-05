@@ -20,6 +20,27 @@ export function signByName(name) {
   return SIGNS.find((s) => s.name === name) || null;
 }
 
+// Detecta el signo solar a partir de la fecha de nacimiento (YYYY-MM-DD), para prellenar sin pedirlo por separado.
+export function signoFromDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00");
+  if (Number.isNaN(d.getTime())) return null;
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return "Capricornio";
+  if (m === 1 || (m === 2 && day <= 18)) return "Acuario";
+  if (m === 2 || (m === 3 && day <= 20)) return "Piscis";
+  if (m === 3 || (m === 4 && day <= 19)) return "Aries";
+  if (m === 4 || (m === 5 && day <= 20)) return "Tauro";
+  if (m === 5 || (m === 6 && day <= 20)) return "Géminis";
+  if (m === 6 || (m === 7 && day <= 22)) return "Cáncer";
+  if (m === 7 || (m === 8 && day <= 22)) return "Leo";
+  if (m === 8 || (m === 9 && day <= 22)) return "Virgo";
+  if (m === 9 || (m === 10 && day <= 22)) return "Libra";
+  if (m === 10 || (m === 11 && day <= 21)) return "Escorpio";
+  return "Sagitario"; // m === 11 (día ≥22) o m === 12 (día ≤21)
+}
+
 const PAIRS = {
   "fuego+fuego": {
     texto: "Dos signos de fuego: intensidad al doble. Viven todo con pasión y movimiento.",

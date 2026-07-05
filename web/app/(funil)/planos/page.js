@@ -4,9 +4,12 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-// Checkout real (Hotmart) — versión en español de Forja del Amor.
-// TODO producción: otorgar acceso real requiere webhook/postback de Hotmart hacia el backend (ver docs/backend.md).
-const HOTMART_CHECKOUT = "https://pay.hotmart.com/W105128423R?bid=1783049846019";
+// Checkout real (Hotmart), embutido en la página vía Checkout Elements — el backend
+// (api-forja) genera un correlationCode server-side y valida el webhook de pago.
+const API_BASE = "https://oddpro.pro/api-forja";
+const HOTMART_CHECKOUT_ELEMENTS_SRC = "https://checkout.hotmart.com/lib/hotmart-checkout-elements.js";
+// Fallback si el checkout embutido falla por algún motivo (red, script bloqueado, etc.)
+const HOTMART_CHECKOUT_FALLBACK = "https://pay.hotmart.com/W105128423R?bid=1783049846019";
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 function fmtES(iso) {
@@ -67,10 +70,11 @@ function PlanosInner() {
   const [sellado, setSellado] = useState(null);
   const [capsuleDate, setCapsuleDate] = useState("");
   const [capsuleSaved, setCapsuleSaved] = useState(false);
-  const [hotmartHref, setHotmartHref] = useState(HOTMART_CHECKOUT);
-  const [redirecting, setRedirecting] = useState(false);
   const [promesa, setPromesa] = useState("");
   const [promesaGuardada, setPromesaGuardada] = useState(false);
+  const [checkoutAberto, setCheckoutAberto] = useState(false);
+  const [checkoutCargando, setCheckoutCargando] = useState(false);
+  const [checkoutErro, setCheckoutErro] = useState("");
 
   useEffect(() => {
     if (!voce || !amor) return;
@@ -107,22 +111,61 @@ function PlanosInner() {
     setPromesaGuardada(true);
   }
 
-  function irCheckout(e) {
-    e.preventDefault();
-    trackInitiateCheckout();
-    setRedirecting(true);
-    setTimeout(() => {
-      window.location.href = hotmartHref;
-    }, 900);
+  function cargarScriptHotmart() {
+    return new Promise((resolve, reject) => {
+      if (window.checkoutElements) return resolve();
+      const existente = document.querySelector(`script[src="${HOTMART_CHECKOUT_ELEMENTS_SRC}"]`);
+      if (existente) {
+        existente.addEventListener("load", () => resolve());
+        existente.addEventListener("error", () => reject(new Error("script falhou")));
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = HOTMART_CHECKOUT_ELEMENTS_SRC;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("script falhou"));
+      document.body.appendChild(script);
+    });
   }
 
-  useEffect(() => {
+  async function abrirCheckout(e) {
+    if (e) e.preventDefault();
+    trackInitiateCheckout();
+    setCheckoutErro("");
+    setCheckoutCargando(true);
+    setCheckoutAberto(true);
     try {
-      const utm = new URLSearchParams(sessionStorage.getItem("utm") || "");
-      const src = utm.get("utm_content") || utm.get("utm_campaign") || "organico";
-      setHotmartHref(`${HOTMART_CHECKOUT}&src=${encodeURIComponent(src)}`);
-    } catch {}
-  }, []);
+      const resp = await fetch(`${API_BASE}/api/checkout/initiate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coupleName: voce && amor ? `${voce} & ${amor}` : undefined }),
+      });
+      if (!resp.ok) throw new Error("initiate falhou");
+      const data = await resp.json();
+      if (voce && amor) {
+        try { localStorage.setItem(`gff-correlation:${voce}:${amor}`, data.correlationCode); } catch {}
+      }
+
+      await cargarScriptHotmart();
+
+      window.checkoutElements
+        .init("inlineCheckout", {
+          offer: data.checkoutConfig.offerCode,
+          xcod: data.checkoutConfig.xcod,
+          ...(data.checkoutConfig.prefilledInfo || {}),
+        })
+        .mount("#hotmart-checkout-mount");
+      setCheckoutCargando(false);
+    } catch (err) {
+      setCheckoutErro("No pudimos abrir el checkout ahora. Intenten de nuevo en un momento.");
+      setCheckoutCargando(false);
+    }
+  }
+
+  function cerrarCheckout() {
+    setCheckoutAberto(false);
+    setCheckoutErro("");
+  }
 
   function guardarFechaCapsula(e) {
     e.preventDefault();
@@ -136,13 +179,38 @@ function PlanosInner() {
     setCapsuleSaved(true);
   }
 
-  if (redirecting) {
+  if (checkoutAberto) {
     return (
       <main className="wrap">
-        <div className="loading">
-          <div className="orb">✴</div>
-          <h2>Preparando el checkout seguro de ustedes<span className="dots" /></h2>
+        <div className="line-label"><span>Checkout seguro</span></div>
+        <div className="bigstar">✴</div>
+        <h1 className="reveal-title" style={{ fontSize: 26 }}>Últimos datos para empezar</h1>
+        <p className="reveal-sub" style={{ maxWidth: 440, margin: "0 auto 20px" }}>
+          $5 USD/mes · 7 días gratis · sin compromiso.
+        </p>
+
+        {checkoutCargando && (
+          <div className="loading">
+            <div className="orb">✴</div>
+            <h2>Preparando el checkout seguro<span className="dots" /></h2>
+          </div>
+        )}
+
+        {checkoutErro && (
+          <div className="card" style={{ textAlign: "center" }}>
+            <p role="alert" className="compat-line" style={{ color: "var(--gold-bright)" }}>{checkoutErro}</p>
+            <a className="btn btn-ghost" style={{ marginTop: 12 }} href={HOTMART_CHECKOUT_FALLBACK} target="_blank" rel="noreferrer">
+              Abrir el checkout en otra pestaña →
+            </a>
+          </div>
+        )}
+
+        <div id="hotmart-checkout-mount" style={{ minHeight: checkoutCargando ? 0 : 480 }} />
+
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <button className="btn btn-ghost" onClick={cerrarCheckout}>← Volver</button>
         </div>
+        <footer>Forja del Amor · prototipo</footer>
       </main>
     );
   }
@@ -157,7 +225,7 @@ function PlanosInner() {
     <main className="wrap" style={{ paddingBottom: 72 }}>
       <div className="sticky-cta">
         <span className="sticky-price">$5 USD/mes · 7 días gratis</span>
-        <button className="btn" onClick={irCheckout}>
+        <button className="btn" onClick={abrirCheckout}>
           Empezar →
         </button>
       </div>
@@ -187,7 +255,7 @@ function PlanosInner() {
       )}
 
       <div style={{ textAlign: "center", marginTop: 14 }}>
-        <button className="btn btn-ghost" onClick={irCheckout}>
+        <button className="btn btn-ghost" onClick={abrirCheckout}>
           Ya lo tenemos claro → empezar nuestros 7 días gratis
         </button>
       </div>
@@ -258,8 +326,8 @@ function PlanosInner() {
       </div>
 
       <div style={{ maxWidth: 380, margin: "20px auto 0" }}>
-        <div className="card" style={{ borderColor: "rgba(212,175,55,.5)", textAlign: "center" }}>
-          <span className="badge">7 días gratis, después $5/mes</span>
+        <div className="card card-3" style={{ textAlign: "center" }}>
+          <span className="badge"><span className="overline">7 días gratis, después $5/mes</span></span>
           <h2 style={{ fontSize: 38, margin: "14px 0 2px" }}>
             $5<span style={{ fontSize: 16, color: "var(--muted)" }}> USD/mes</span>
           </h2>
@@ -286,7 +354,7 @@ function PlanosInner() {
             )}
           </div>
 
-          <button className="btn" style={{ marginTop: 16, width: "100%", fontSize: 15 }} onClick={irCheckout}>
+          <button className="btn" style={{ marginTop: 16, width: "100%", fontSize: 15 }} onClick={abrirCheckout}>
             Comenzar mis 7 días gratis →
           </button>
           <div style={{ marginTop: 14, textAlign: "left" }}>
@@ -340,7 +408,7 @@ function PlanosInner() {
           y no pagan nada. Lo que escriban esta semana queda guardado, y es suyo: lo pueden exportar
           cuando quieran.
         </p>
-        <button className="btn" style={{ marginTop: 14, width: "100%", maxWidth: 320 }} onClick={irCheckout}>
+        <button className="btn" style={{ marginTop: 14, width: "100%", maxWidth: 320 }} onClick={abrirCheckout}>
           Quiero guardar nuestra historia →
         </button>
       </div>

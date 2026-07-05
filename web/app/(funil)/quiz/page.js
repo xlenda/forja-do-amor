@@ -3,8 +3,8 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const STEPS = ["Ustedes", "Signos", "Nacer", "Energía", "Cartas", "Astros"];
-import { SIGNS, compatibility, compatPercent, cosmicNumbers, frequenciaFor, CARDS, moonSign } from "@/lib/signs.es";
+const STEPS = ["Ustedes", "Signo y Nacimiento", "Energía", "Cartas", "Astros"];
+import { SIGNS, compatibility, compatPercent, cosmicNumbers, frequenciaFor, CARDS, moonSign, signoFromDate } from "@/lib/signs.es";
 
 const ENERGIAS = [
   "Romántica 💕",
@@ -34,8 +34,6 @@ const MOON_NEED = {
   aire: "necesita conversar y entender para sentirse cerca",
   agua: "necesita ternura y contacto para sentirse a salvo",
 };
-
-const DESAFIOS = ["Comunicación", "Rutina vs. romance", "Confianza", "Redescubrirse"];
 
 function Typewriter({ text, speed = 45 }) {
   const [shown, setShown] = useState("");
@@ -105,16 +103,16 @@ export default function Quiz() {
   const [nascAmor, setNascAmor] = useState("");
   const [nascHoraVoce, setNascHoraVoce] = useState("");
   const [nascHoraAmor, setNascHoraAmor] = useState("");
+  const [signoManualVoce, setSignoManualVoce] = useState(false);
+  const [signoManualAmor, setSignoManualAmor] = useState(false);
   const [desejo, setDesejo] = useState("");
-  const [conflicto, setConflicto] = useState("");
-  const [desafioClave, setDesafioClave] = useState("");
   const [cartas, setCartas] = useState([]);
   const [analisando, setAnalisando] = useState(false);
   const [fase, setFase] = useState(0);
   const [aviso, setAviso] = useState("");
   const amorRef = useRef(null);
 
-  const total = 6;
+  const total = 5;
 
   function toggleCarta(name) {
     setCartas((prev) =>
@@ -125,27 +123,44 @@ export default function Quiz() {
         : prev
     );
   }
+
+  function onNascVoceChange(v) {
+    setNascVoce(v);
+    const auto = signoFromDate(v);
+    if (auto) setSignoVoce(auto);
+  }
+  function onNascAmorChange(v) {
+    setNascAmor(v);
+    const auto = signoFromDate(v);
+    if (auto) setSignoAmor(auto);
+  }
+
+  // Destaca visualmente o campo vazio específico, além do aviso de texto (que fica longe, embaixo da tela).
+  const inputInvalidoStyle = { borderColor: "var(--gold-bright)", boxShadow: "0 0 0 2px rgba(245,215,110,.35)" };
+  const avisoNomeVoce = Boolean(aviso) && step === 1 && !voce;
+  const avisoNomeAmor = Boolean(aviso) && step === 1 && Boolean(voce) && !amor;
+  const avisoFechaVoce = Boolean(aviso) && step === 2 && !nascVoce;
+  const avisoFechaAmor = Boolean(aviso) && step === 2 && Boolean(nascVoce) && !nascAmor;
+
   const compat = signoVoce && signoAmor ? compatibility(signoVoce, signoAmor) : null;
   const lunaA = moonSign(nascVoce, nascHoraVoce);
   const lunaB = moonSign(nascAmor, nascHoraAmor);
 
   const canNext =
     (step === 1 && voce && amor) ||
-    (step === 2 && signoVoce && signoAmor) ||
-    (step === 3 && nascVoce && nascAmor) ||
-    (step === 4 && desejo && conflicto && desafioClave) ||
-    (step === 5 && cartas.length === 3) ||
-    step === 6;
+    (step === 2 && nascVoce && nascAmor && signoVoce && signoAmor) ||
+    (step === 3 && desejo) ||
+    (step === 4 && cartas.length === 3) ||
+    step === 5;
 
   const AVISOS = {
     1: !voce ? "Escribí tu nombre para continuar." : !amor ? "Falta el nombre de tu amor." : "",
-    2: !signoVoce ? `Elegí el signo de ${voce || "tu"}.` : !signoAmor ? `Elegí el signo de ${amor || "tu amor"}.` : "",
-    3: !nascVoce ? `Falta la fecha de nacimiento de ${voce || "ustedes"}.` : !nascAmor ? `Falta la fecha de nacimiento de ${amor || "su amor"}.` : "",
-    4: !desejo ? "Elegí la energía de ustedes ahora." : !conflicto ? "Elegí quién suele dar el primer paso." : !desafioClave ? "Elegí el desafío que más quieren resolver." : "",
-    5: cartas.length < 3 ? `Elegí 3 cartas — te faltan ${3 - cartas.length}.` : "",
+    2: !nascVoce ? `Falta la fecha de nacimiento de ${voce || "ustedes"}.` : !nascAmor ? `Falta la fecha de nacimiento de ${amor || "su amor"}.` : !signoVoce || !signoAmor ? "Revisá las fechas — no pudimos calcular el signo." : "",
+    3: !desejo ? "Elegí la energía de ustedes ahora." : "",
+    4: cartas.length < 3 ? `Elegí 3 cartas — te faltan ${3 - cartas.length}.` : "",
   };
 
-  useEffect(() => setAviso(""), [voce, amor, signoVoce, signoAmor, nascVoce, nascAmor, desejo, conflicto, desafioClave, cartas.length]);
+  useEffect(() => setAviso(""), [voce, amor, signoVoce, signoAmor, nascVoce, nascAmor, desejo, cartas.length]);
 
   useEffect(() => {
     try {
@@ -161,8 +176,6 @@ export default function Quiz() {
       if (d.nascHoraVoce) setNascHoraVoce(d.nascHoraVoce);
       if (d.nascHoraAmor) setNascHoraAmor(d.nascHoraAmor);
       if (d.desejo) setDesejo(d.desejo);
-      if (d.conflicto) setConflicto(d.conflicto);
-      if (d.desafioClave) setDesafioClave(d.desafioClave);
       if (Array.isArray(d.cartas)) setCartas(d.cartas);
       if (d.step) setStep(d.step);
     } catch {}
@@ -173,13 +186,13 @@ export default function Quiz() {
     try {
       localStorage.setItem(
         "gff-quiz-draft",
-        JSON.stringify({ voce, amor, signoVoce, signoAmor, nascVoce, nascAmor, nascHoraVoce, nascHoraAmor, desejo, conflicto, desafioClave, cartas, step })
+        JSON.stringify({ voce, amor, signoVoce, signoAmor, nascVoce, nascAmor, nascHoraVoce, nascHoraAmor, desejo, cartas, step })
       );
     } catch {}
-  }, [voce, amor, signoVoce, signoAmor, nascVoce, nascAmor, nascHoraVoce, nascHoraAmor, desejo, conflicto, desafioClave, cartas, step]);
+  }, [voce, amor, signoVoce, signoAmor, nascVoce, nascAmor, nascHoraVoce, nascHoraAmor, desejo, cartas, step]);
 
   useEffect(() => {
-    if (step === 6 && compat && typeof window !== "undefined") {
+    if (step === 5 && compat && typeof window !== "undefined") {
       window.fbq && window.fbq("track", "ViewContent", { content_name: "lectura_pareja", content_category: "astrologia" });
       window.gtag && window.gtag("event", "view_item", { item_name: "lectura_pareja" });
     }
@@ -189,18 +202,16 @@ export default function Quiz() {
     try {
       localStorage.removeItem("gff-quiz-draft");
     } catch {}
-    const q = new URLSearchParams({ voce, amor, sa: signoVoce, sb: signoAmor, cf: conflicto, df: desafioClave, en: desejo });
+    const q = new URLSearchParams({ voce, amor, sa: signoVoce, sb: signoAmor, en: desejo });
     router.push(`/selar?${q.toString()}`);
   }
 
   function avancar() {
-    if (step === 5) {
+    if (step === 4) {
       const canalMsgs = [
-        `Leyendo el Sol de ${voce} en ${signoVoce}…`,
-        `Leyendo el Sol de ${amor} en ${signoAmor}…`,
-        nascVoce ? `Calculando la Luna real de ${voce}…` : `Sintiendo la energía "${desejo}"…`,
+        `Leyendo el cielo de ${voce} & ${amor}…`,
         `Cruzando ${signoVoce} con ${signoAmor}…`,
-        `Trazando el cielo de ${voce} & ${amor}…`,
+        `Trazando su mapa…`,
       ];
       setAnalisando(canalMsgs);
       setFase(0);
@@ -210,12 +221,12 @@ export default function Quiz() {
             clearInterval(id);
             setTimeout(() => {
               setAnalisando(false);
-              setStep(6);
-            }, 480);
+              setStep(5);
+            }, 350);
           }
           return f + 1;
         });
-      }, 480);
+      }, 350);
     } else {
       setStep(step + 1);
     }
@@ -295,11 +306,13 @@ export default function Quiz() {
         </>
       )}
 
-      {step < 6 && <p className="step-label">Paso {step} de {total} · {STEPS[step - 1]}</p>}
+      {step < 5 && <p className="step-label">Paso {step} de {total} · {STEPS[step - 1]}</p>}
 
       {step === 1 && (
         <div>
-          <h2 className="reveal-title" style={{ fontSize: 26 }}>¿Cómo se llaman?</h2>
+          <div className="section-head">
+            <span className="section-head-title">¿Cómo se llaman?</span>
+          </div>
           <div className="form-wrap">
             <div className="field">
               <label>Tu nombre</label>
@@ -313,6 +326,7 @@ export default function Quiz() {
                 onChange={(e) => setVoce(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amorRef.current?.focus(); } }}
                 placeholder="Ej.: Ana"
+                style={avisoNomeVoce ? inputInvalidoStyle : undefined}
               />
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
@@ -327,6 +341,7 @@ export default function Quiz() {
                 onChange={(e) => setAmor(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && voce && amor) { e.preventDefault(); handleContinuar(); } }}
                 placeholder="Ej.: Leo"
+                style={avisoNomeAmor ? inputInvalidoStyle : undefined}
               />
             </div>
           </div>
@@ -335,180 +350,151 @@ export default function Quiz() {
 
       {step === 2 && (
         <div>
-          <h2 className="reveal-title" style={{ fontSize: 26 }}>{voce} y {amor}, ¿cuál es el signo de cada uno?</h2>
-          <label style={{ display: "block", fontWeight: 600, margin: "12px 0 2px", color: "#d9d4ee" }}>Signo de {voce}</label>
-          <div className="zgrid">
-            {SIGNS.map((s) => {
-              const sel = signoVoce === s.name;
-              return (
-                <button
-                  type="button"
-                  key={s.name}
-                  className={`zcell ${sel ? "sel" : ""}`}
-                  aria-pressed={sel}
-                  onClick={() => setSignoVoce(s.name)}
-                >
-                  <div className="sym">{s.emoji}</div>
-                  <div className="nm">{s.name}</div>
-                  <div className="rg">{s.range}</div>
-                </button>
-              );
-            })}
+          <div className="section-head">
+            <span className="section-head-title">Fecha de nacimiento de cada uno</span>
           </div>
-          <label style={{ display: "block", fontWeight: 600, margin: "18px 0 2px", color: "#d9d4ee" }}>Signo de {amor}</label>
-          <div className="zgrid">
-            {SIGNS.map((s) => {
-              const sel = signoAmor === s.name;
-              return (
-                <button
-                  type="button"
-                  key={s.name}
-                  className={`zcell ${sel ? "sel" : ""}`}
-                  aria-pressed={sel}
-                  onClick={() => setSignoAmor(s.name)}
-                >
-                  <div className="sym">{s.emoji}</div>
-                  <div className="nm">{s.name}</div>
-                  <div className="rg">{s.range}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div>
-          <h2 className="reveal-title" style={{ fontSize: 26 }}>Fecha y hora de nacimiento</h2>
-          <p className="muted" style={{ textAlign: "center", marginBottom: 6 }}>La hora es opcional — pero revela el Ascendente, la energía que esconden hasta de ustedes mismos.</p>
+          <p className="muted" style={{ textAlign: "center", marginBottom: 6 }}>
+            Con la fecha ya sabemos el signo de cada uno. La hora es opcional — pero revela el Ascendente.
+          </p>
           <div className="form-wrap">
             <div className="grid2">
               <div className="field">
                 <label>Fecha de {voce}</label>
-                <input className="input" type="date" max={hoyISO} min="1920-01-01" value={nascVoce} onChange={(e) => setNascVoce(e.target.value)} />
+                <input className="input" type="date" max={hoyISO} min="1900-01-01" value={nascVoce} onChange={(e) => onNascVoceChange(e.target.value)} style={avisoFechaVoce ? inputInvalidoStyle : undefined} />
               </div>
               <div className="field">
                 <label>Hora de {voce} (opcional)</label>
                 <input className="input" type="time" value={nascHoraVoce} onChange={(e) => setNascHoraVoce(e.target.value)} />
               </div>
             </div>
-            <div className="grid2">
+            {signoVoce && (
+              <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>
+                Signo de {voce}: <b style={{ color: "var(--gold-bright)" }}>{signoVoce}</b>{" "}
+                <button type="button" className="link-like" style={{ background: "none", border: "none", color: "var(--gold)", textDecoration: "underline", cursor: "pointer", fontSize: 13 }} onClick={() => setSignoManualVoce((v) => !v)}>
+                  {signoManualVoce ? "ocultar" : "no es mi signo"}
+                </button>
+              </p>
+            )}
+            {signoManualVoce && (
+              <div className="zgrid" style={{ marginBottom: 14 }}>
+                {SIGNS.map((s) => {
+                  const sel = signoVoce === s.name;
+                  return (
+                    <button type="button" key={s.name} className={`zcell ${sel ? "sel" : ""}`} aria-pressed={sel} onClick={() => setSignoVoce(s.name)}>
+                      <div className="sym">{s.emoji}</div>
+                      <div className="nm">{s.name}</div>
+                      <div className="rg">{s.range}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="grid2" style={{ marginTop: 16 }}>
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>Fecha de {amor}</label>
-                <input className="input" type="date" max={hoyISO} min="1920-01-01" value={nascAmor} onChange={(e) => setNascAmor(e.target.value)} />
+                <input className="input" type="date" max={hoyISO} min="1900-01-01" value={nascAmor} onChange={(e) => onNascAmorChange(e.target.value)} style={avisoFechaAmor ? inputInvalidoStyle : undefined} />
               </div>
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>Hora de {amor} (opcional)</label>
                 <input className="input" type="time" value={nascHoraAmor} onChange={(e) => setNascHoraAmor(e.target.value)} />
               </div>
             </div>
+            {signoAmor && (
+              <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                Signo de {amor}: <b style={{ color: "var(--gold-bright)" }}>{signoAmor}</b>{" "}
+                <button type="button" className="link-like" style={{ background: "none", border: "none", color: "var(--gold)", textDecoration: "underline", cursor: "pointer", fontSize: 13 }} onClick={() => setSignoManualAmor((v) => !v)}>
+                  {signoManualAmor ? "ocultar" : "no es su signo"}
+                </button>
+              </p>
+            )}
+            {signoManualAmor && (
+              <div className="zgrid">
+                {SIGNS.map((s) => {
+                  const sel = signoAmor === s.name;
+                  return (
+                    <button type="button" key={s.name} className={`zcell ${sel ? "sel" : ""}`} aria-pressed={sel} onClick={() => setSignoAmor(s.name)}>
+                      <div className="sym">{s.emoji}</div>
+                      <div className="nm">{s.name}</div>
+                      <div className="rg">{s.range}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div>
+          <div className="section-head">
+            <span className="section-head-title">{voce} y {amor}: ¿cuál es la energía de ustedes ahora?</span>
+          </div>
+          <div className="card card-2">
+            <div className="opts" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              {ENERGIAS.map((d) => (
+                <button key={d} type="button" className={`opt ${desejo === d ? "sel" : ""}`} style={{ textAlign: "center" }} onClick={() => setDesejo(d)}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            {desejo && <p className="reveal-sub" style={{ marginTop: 14, marginBottom: 0 }}>{ENERGIA_ECO[desejo]}</p>}
           </div>
         </div>
       )}
 
       {step === 4 && (
         <div>
-          <h2 className="reveal-title" style={{ fontSize: 26 }}>{voce} y {amor}: ¿cuál es la energía de ustedes ahora?</h2>
-          <div className="opts" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 14 }}>
-            {ENERGIAS.map((d) => (
-              <button key={d} type="button" className={`opt ${desejo === d ? "sel" : ""}`} style={{ textAlign: "center" }} onClick={() => setDesejo(d)}>
-                {d}
-              </button>
-            ))}
+          <div className="section-head">
+            <span className="section-head-title">{voce} y {amor}, elijan 3 cartas</span>
           </div>
-          {desejo && <p className="reveal-sub" style={{ marginTop: 14 }}>{ENERGIA_ECO[desejo]}</p>}
-
-          {desejo && (
-            <div style={{ marginTop: 26 }}>
-              <p className="muted" style={{ textAlign: "center", marginBottom: 8 }}>
-                Cuando hay un conflicto entre {voce} y {amor}, ¿quién suele dar el primer paso?
-              </p>
-              <div className="opts" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 6 }}>
-                {[voce || "Yo", amor || "Mi amor", "Los dos por igual", "Todavía ninguno"].map((op) => (
+          <div className="card card-2" style={{ textAlign: "center" }}>
+            <p className="muted">
+              {cartas.length < 3
+                ? <>Ahora eligen su carta del <b>{["Pasado", "Presente", "Futuro"][cartas.length]}</b> · {cartas.length}/3</>
+                : `El pasado, el presente y el futuro de ${voce} & ${amor} ya están sobre la mesa.`}
+            </p>
+            <div className="tarot-deck">
+              {CARDS.map((c) => {
+                const flipped = cartas.includes(c.name);
+                const disabled = !flipped && cartas.length >= 3;
+                return (
                   <button
-                    key={op}
                     type="button"
-                    className={`opt ${conflicto === op ? "sel" : ""}`}
-                    style={{ textAlign: "center" }}
-                    onClick={() => setConflicto(op)}
+                    key={c.name}
+                    className={`tarot-card ${flipped ? "flipped" : ""} ${disabled ? "disabled" : ""}`}
+                    aria-pressed={flipped}
+                    aria-disabled={disabled}
+                    aria-label={`Carta ${c.name}, ${flipped ? "elegida" : "sin elegir"}`}
+                    onClick={() => !disabled && toggleCarta(c.name)}
                   >
-                    {op}
+                    <div className="tarot-card-face tarot-card-back">✷</div>
+                    <div className="tarot-card-face tarot-card-front">
+                      <div className="tarot-card-emoji">{c.emoji}</div>
+                      <div className="tarot-card-name">{c.name}</div>
+                    </div>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
-
-          {conflicto && (
-            <div style={{ marginTop: 26 }}>
-              <p className="muted" style={{ textAlign: "center", marginBottom: 8 }}>
-                ¿Cuál es el desafío que más quieren resolver juntos?
-              </p>
-              <div className="opts" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 6 }}>
-                {DESAFIOS.map((op) => (
-                  <button
-                    key={op}
-                    type="button"
-                    className={`opt ${desafioClave === op ? "sel" : ""}`}
-                    style={{ textAlign: "center" }}
-                    onClick={() => setDesafioClave(op)}
-                  >
-                    {op}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {step === 5 && (
-        <div>
-          <h2 className="reveal-title" style={{ fontSize: 26 }}>{voce} y {amor}, elijan 3 cartas</h2>
-          <p className="muted" style={{ textAlign: "center" }}>
-            {cartas.length < 3
-              ? <>Ahora eligen su carta del <b>{["Pasado", "Presente", "Futuro"][cartas.length]}</b> · {cartas.length}/3</>
-              : `El pasado, el presente y el futuro de ${voce} & ${amor} ya están sobre la mesa.`}
-          </p>
-          <div className="tarot-deck">
-            {CARDS.map((c) => {
-              const flipped = cartas.includes(c.name);
-              const disabled = !flipped && cartas.length >= 3;
-              return (
-                <button
-                  type="button"
-                  key={c.name}
-                  className={`tarot-card ${flipped ? "flipped" : ""} ${disabled ? "disabled" : ""}`}
-                  aria-pressed={flipped}
-                  aria-disabled={disabled}
-                  aria-label={`Carta ${c.name}, ${flipped ? "elegida" : "sin elegir"}`}
-                  onClick={() => !disabled && toggleCarta(c.name)}
-                >
-                  <div className="tarot-card-face tarot-card-back">✷</div>
-                  <div className="tarot-card-face tarot-card-front">
-                    <div className="tarot-card-emoji">{c.emoji}</div>
-                    <div className="tarot-card-name">{c.name}</div>
+            <div className="tarot-tray">
+              {["Pasado", "Presente", "Futuro"].map((rol, i) => {
+                const name = cartas[i];
+                const c = name && CARDS.find((x) => x.name === name);
+                return (
+                  <div key={rol} className={`tray-slot ${c ? "filled" : ""} ${cartas.length === i ? "next" : ""}`}>
+                    <div className="tray-rol">{rol}</div>
+                    <div className="tray-emoji">{c ? c.emoji : "·"}</div>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-          <div className="tarot-tray">
-            {["Pasado", "Presente", "Futuro"].map((rol, i) => {
-              const name = cartas[i];
-              const c = name && CARDS.find((x) => x.name === name);
-              return (
-                <div key={rol} className={`tray-slot ${c ? "filled" : ""} ${cartas.length === i ? "next" : ""}`}>
-                  <div className="tray-rol">{rol}</div>
-                  <div className="tray-emoji">{c ? c.emoji : "·"}</div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {step === 6 && compat && (
+      {step === 5 && compat && (
         <div className="reveal-stack">
           <div id="resultado-compartir">
           <div style={{ textAlign: "center", fontSize: 48, letterSpacing: 12, margin: "8px 0" }}>
@@ -516,7 +502,7 @@ export default function Quiz() {
           </div>
           <h2 className="reveal-title italic">{compat.titulo}</h2>
           <p className="reveal-sub">La energía de {voce} &amp; {amor}</p>
-          <div className="compat-box">
+          <div className="compat-box card-elevated">
             <div className="pct"><CountUp to={compatPercent(signoVoce, signoAmor)} />%</div>
             <div className="badge" style={{ marginTop: 10 }}>compatibilidad de la pareja</div>
             <p className="disclaimer" style={{ marginTop: 6 }}>
@@ -548,14 +534,11 @@ export default function Quiz() {
                 Y la energía de ustedes ahora — “{desejo}” — combina con esta etapa. 💛
               </p>
             )}
-            {desafioClave && (
-              <p className="compat-line muted">
-                Marcaron “{desafioClave}” como el desafío que más quieren resolver — ya es parte de su mapa.
-              </p>
-            )}
           </div>
           <div className="card">
-            <div className="section-title" style={{ margin: "0 0 10px", textAlign: "center" }}>Sol · Luna · Ascendente</div>
+            <div className="section-head" style={{ justifyContent: "center", marginTop: 0 }}>
+              <span className="section-head-title">Sol · Luna · Ascendente</span>
+            </div>
             {lunaA && lunaB ? (
               <>
                 <p className="compat-line" style={{ textAlign: "center" }}>
@@ -581,16 +564,13 @@ export default function Quiz() {
               </>
             )}
             <p className="disclaimer" style={{ textAlign: "center", marginTop: 8 }}>
-              El Ascendente — la primera impresión que dan y la coraza que sacan bajo presión — se calcula con la hora y la ciudad de nacimiento. Es la primera de las cuatro partes que se abren dentro de la app.
+              El Ascendente — la primera impresión que dan y la coraza que sacan bajo presión — se calcula con la hora y la ciudad de nacimiento. Es una de las partes que se abren dentro de la app.
             </p>
-            {conflicto && (
-              <p className="disclaimer" style={{ textAlign: "center", marginTop: 8 }}>
-                Dijeron que {conflicto === "Los dos por igual" ? "los dos suelen dar" : conflicto === "Todavía ninguno" ? "todavía ninguno da" : `${conflicto} suele dar`} el primer paso en un conflicto — cruzado con sus Lunas, esa es otra de las cuatro partes que se abren dentro de la app.
-              </p>
-            )}
           </div>
           <div className="card">
-            <div className="section-title" style={{ margin: "0 0 10px", textAlign: "center" }}>Las cartas de ustedes</div>
+            <div className="section-head" style={{ justifyContent: "center", marginTop: 0 }}>
+              <span className="section-head-title">Las cartas de ustedes</span>
+            </div>
             {cartas.map((name, i) => {
               const c = CARDS.find((x) => x.name === name);
               const rotulo = ["Pasado", "Presente", "Futuro"][i] || "";
@@ -604,7 +584,7 @@ export default function Quiz() {
           </div>
           <div className="card" style={{ textAlign: "center" }}>
             <span className="badge">✷ {frequenciaFor(`${voce}${amor}${signoVoce}${signoAmor}`)} ✷</span>
-            <p className="muted" style={{ marginTop: 12 }}>Números cósmicos de la pareja</p>
+            <p className="muted" style={{ marginTop: 12 }}><span className="overline">Números cósmicos de la pareja</span></p>
             <div style={{ fontFamily: "var(--serif)", fontSize: 32, color: "var(--gold)", letterSpacing: 8, marginTop: 4, textShadow: "0 0 18px rgba(232,195,122,.5)" }}>
               {cosmicNumbers(`${voce}${amor}${signoVoce}${signoAmor}`, 3).join(" · ")}
             </div>
@@ -654,7 +634,7 @@ export default function Quiz() {
         ) : <span />}
         {step < total && (
           <button className="btn" onClick={handleContinuar}>
-            {step === 5 ? "Ver la revelación" : "Continuar"}
+            {step === 4 ? "Ver la revelación" : "Continuar"}
           </button>
         )}
       </div>

@@ -75,9 +75,17 @@ function todayISOLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// Cruza el estilo de apego (de Descubrir) con el clima de hoy para sugerir la trayectoria más útil ahora.
-function trilhaRecomendada(apego, clima) {
+const DESAFIO_TRACK = {
+  "Comunicación": "conversar",
+  "Rutina vs. romance": "carinho",
+  "Confianza": "confianca",
+  "Redescubrirse": "carinho",
+};
+
+// Cruza el clima de hoy, el desafío que marcaron en Descubrir y el estilo de apego para sugerir la trayectoria más útil ahora.
+function trilhaRecomendada(apego, clima, desafio) {
   if (clima === "distante") return "frieza";
+  if (desafio && DESAFIO_TRACK[desafio]) return DESAFIO_TRACK[desafio];
   if (apego === "ansioso") return "confianca";
   if (apego === "evitativo") return "conversar";
   if (apego === "seguro") return "carinho";
@@ -117,7 +125,7 @@ function ReconectarInner() {
     try {
       const descobrir = JSON.parse(localStorage.getItem(`gff-descobrir:${voce}:${amor}`) || "{}");
       const hoje = JSON.parse(localStorage.getItem(`gff-hoje:${voce}:${amor}:${todayISOLocal()}`) || "{}");
-      const rec = trilhaRecomendada(descobrir.apego?.top, hoje.clima);
+      const rec = trilhaRecomendada(descobrir.apego?.top, hoje.clima, descobrir.conflictos?.desafio);
       setRecomendada(rec);
       if (rec) setOpen(rec);
     } catch {}
@@ -159,6 +167,7 @@ function ReconectarInner() {
 
   const totalSteps = TRACKS.reduce((n, t) => n + t.steps.length, 0);
   const totalDone = TRACKS.reduce((n, t) => n + doneCount(t), 0);
+  const trilhasCompletas = TRACKS.filter((t) => doneCount(t) === t.steps.length).length;
 
   return (
     <main className="wrap">
@@ -187,35 +196,15 @@ function ReconectarInner() {
         <div className="couple-meta">un paso a la vez, juntos 💛</div>
       </div>
 
-      <div className="card">
-        <div className="section-title" style={{ margin: "0 0 8px" }}>Reavivar la conexión</div>
-        <p className="muted" style={{ margin: 0 }}>
-          Reconectar no es convencer ni controlar a nadie — es volver a escucharse, cuidarse y
-          comunicarse con honestidad. Elijan una trayectoria y hagan una pequeña misión por día,
-          a su propio ritmo. Los gestos pequeños, repetidos, reconstruyen el vínculo.
-        </p>
-        <p className="disclaimer" style={{ marginTop: 12 }}>
-          Para cuestiones serias, consideren terapia de pareja con un profesional.
-        </p>
-        {mounted && (
-          <>
-            <div className="progress" style={{ marginBottom: 6 }}>
-              <i style={{ width: `${totalSteps ? (totalDone / totalSteps) * 100 : 0}%` }} />
-            </div>
-            <p className="hint" style={{ textAlign: "left", margin: 0 }}>
-              {totalDone} de {totalSteps} misiones completadas
-            </p>
-          </>
-        )}
-      </div>
-
-      <div className="card" style={{ marginBottom: 14, borderColor: "rgba(212,175,55,.45)" }}>
+      {/* Acción más urgente de la página: Modo SOS, para justo después de una pelea */}
+      <div className="card card-3" style={{ marginBottom: 14 }}>
         <button
           onClick={() => setSosOpen((v) => !v)}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text)", width: "100%", textAlign: "left", padding: 0, display: "flex", alignItems: "center", gap: 12 }}
         >
           <div style={{ fontSize: 28 }}>🆘</div>
           <div style={{ flex: 1 }}>
+            <span className="overline">Ayuda inmediata</span>
             <div className="section-title" style={{ margin: 0 }}>Modo SOS — recién después de una pelea</div>
             <p className="muted" style={{ margin: "2px 0 0" }}>4 pasos cortos para bajar la tensión ahora, sin elegir ninguna trayectoria.</p>
           </div>
@@ -238,7 +227,47 @@ function ReconectarInner() {
         )}
       </div>
 
-      <div className="section-title">Trayectorias de reconexión</div>
+      {/* Contenido de contexto/explicación: baja jerarquía visual */}
+      <div className="card card-1">
+        <div className="section-title" style={{ margin: "0 0 8px" }}>Reavivar la conexión</div>
+        <p className="muted" style={{ margin: 0 }}>
+          Reconectar no es convencer ni controlar a nadie — es volver a escucharse, cuidarse y
+          comunicarse con honestidad. Elijan una trayectoria y hagan una pequeña misión por día,
+          a su propio ritmo. Los gestos pequeños, repetidos, reconstruyen el vínculo.
+        </p>
+        <p className="disclaimer" style={{ marginTop: 12 }}>
+          Para cuestiones serias, consideren terapia de pareja con un profesional.
+        </p>
+      </div>
+
+      {mounted && (
+        <div className="card card-2" style={{ marginTop: 14, marginBottom: 14 }}>
+          <span className="overline">Su avance conjunto</span>
+          <div className="stat-row" style={{ marginTop: 10 }}>
+            <div className="stat">
+              <div className="stat-value">{totalDone}</div>
+              <div className="stat-label">✅ hechas</div>
+            </div>
+            <div className="stat-divider" />
+            <div className="stat">
+              <div className="stat-value">{totalSteps - totalDone}</div>
+              <div className="stat-label">⏳ pendientes</div>
+            </div>
+            <div className="stat-divider" />
+            <div className="stat">
+              <div className="stat-value">{trilhasCompletas}/{TRACKS.length}</div>
+              <div className="stat-label">🏁 trayectorias</div>
+            </div>
+          </div>
+          <div className="progress" style={{ marginTop: 14 }}>
+            <i style={{ width: `${totalSteps ? (totalDone / totalSteps) * 100 : 0}%` }} />
+          </div>
+        </div>
+      )}
+
+      <div className="section-head">
+        <span className="section-head-title">Trayectorias de reconexión</span>
+      </div>
       {recomendada && (
         <p className="muted" style={{ marginTop: -8, marginBottom: 10 }}>
           Según cómo suelen vincularse y el clima de hoy, les sugerimos empezar por la trayectoria marcada abajo.
@@ -251,8 +280,18 @@ function ReconectarInner() {
         const pct = total ? (done / total) * 100 : 0;
         const isOpen = open === track.id;
         const complete = mounted && pct === 100;
+        const isRecommended = recomendada === track.id;
         return (
-          <div className="card" key={track.id} style={{ marginBottom: 14 }}>
+          <div
+            className="card card-2"
+            key={track.id}
+            style={{
+              marginBottom: 14,
+              ...(isRecommended
+                ? { borderColor: "rgba(212,175,55,.55)", boxShadow: "0 0 0 1px rgba(212,175,55,.3), 0 12px 40px rgba(0,0,0,.35)" }
+                : {}),
+            }}
+          >
             <button
               onClick={() => setOpen(isOpen ? "" : track.id)}
               style={{
@@ -263,10 +302,12 @@ function ReconectarInner() {
             >
               <div style={{ fontSize: 28 }}>{track.emoji}</div>
               <div style={{ flex: 1 }}>
-                <div className="section-title" style={{ margin: 0 }}>
-                  {track.title}
-                  {recomendada === track.id && <span className="badge" style={{ marginLeft: 8, fontSize: 11 }}>sugerida para hoy</span>}
-                </div>
+                {isRecommended && (
+                  <span className="badge" style={{ marginBottom: 6, display: "inline-block" }}>
+                    ✷ sugerida para hoy
+                  </span>
+                )}
+                <div className="section-title" style={{ margin: 0 }}>{track.title}</div>
                 <p className="muted" style={{ margin: "2px 0 0" }}>{track.intro}</p>
               </div>
               <span className="badge" style={{ whiteSpace: "nowrap" }}>

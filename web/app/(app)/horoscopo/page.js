@@ -115,29 +115,38 @@ function HoroInner() {
         <div className="couple-meta">{fmtES(hoje)}</div>
       </div>
 
-      <div className="grid2" style={{ marginBottom: 16 }}>
-        <div className="field" style={{ margin: 0 }}>
-          <label>Tu signo</label>
-          <select value={sa} onChange={(e) => setSa(e.target.value)}>
-            {SIGNS.map((s) => (<option key={s.name} value={s.name}>{s.emoji} {s.name}</option>))}
-          </select>
-        </div>
-        <div className="field" style={{ margin: 0 }}>
-          <label>Signo de tu amor</label>
-          <select value={sb} onChange={(e) => setSb(e.target.value)}>
-            {SIGNS.map((s) => (<option key={s.name} value={s.name}>{s.emoji} {s.name}</option>))}
-          </select>
+      <div className="card card-1">
+        <span className="overline">Elijan sus signos</span>
+        <div className="grid2" style={{ marginTop: 10 }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Tu signo</label>
+            <select value={sa} onChange={(e) => setSa(e.target.value)}>
+              {SIGNS.map((s) => (<option key={s.name} value={s.name}>{s.emoji} {s.name}</option>))}
+            </select>
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Signo de tu amor</label>
+            <select value={sb} onChange={(e) => setSb(e.target.value)}>
+              {SIGNS.map((s) => (<option key={s.name} value={s.name}>{s.emoji} {s.name}</option>))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div key={`${sa}|${sb}`} className="card fade-in" style={{ textAlign: "center" }}>
+      <div className="section-head">
+        <span className="section-head-title">Horóscopo de hoy</span>
+      </div>
+      <div key={`${sa}|${sb}`} className="card card-3 fade-in" style={{ textAlign: "center" }}>
         <div style={{ fontSize: 38, letterSpacing: 8 }}>✷</div>
         <span className="badge" style={{ marginTop: 6 }}>{h.tema}</span>
         <p className="compat-line" style={{ fontSize: 18, marginTop: 14 }}>{h.texto}</p>
         <p className="compat-line muted"><b style={{ color: "var(--gold)" }}>Consejo de hoy:</b> {personalize(h.dica, voce, amor)}</p>
         <div className="hr" />
-        <p className="muted" style={{ fontSize: 14 }}>
-          Sintonía de hoy entre {voce} y {amor}: <b style={{ color: "var(--gold)" }}><CountUp to={pct} />%</b>
+        <div className="ring ring-sm" style={{ "--ring-pct": pct, margin: "0 auto" }}>
+          <span className="ring-value"><CountUp to={pct} />%</span>
+        </div>
+        <p className="muted" style={{ fontSize: 14, marginTop: 10 }}>
+          Sintonía de hoy entre {voce} y {amor}
         </p>
       </div>
 

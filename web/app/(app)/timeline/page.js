@@ -134,29 +134,56 @@ function TimelineInner() {
         <div className="couple-meta">construyendo recuerdos juntos 💛</div>
       </div>
 
-      <Link className="card" href={`/horoscopo?${horoQuery.toString()}`} style={{ display: "block", textAlign: "center", marginBottom: 20 }}>
+      <Link className="card card-1" href={`/horoscopo?${horoQuery.toString()}`} style={{ display: "block", textAlign: "center", marginBottom: 20 }}>
         <span className="badge">✷ Horóscopo de la pareja ✷</span>
         <p className="muted" style={{ marginTop: 8 }}>Mira la energía de hoy entre {voce} y {amor} →</p>
       </Link>
 
-      {/* Línea del tiempo */}
-      <div className="timeline">
-        {allMemories.map((m) => (
-          <div className={`tl-item${m.id === justAddedId ? " tl-item-new" : ""}`} key={m.id}>
-            <div className="tl-date">{fmt(m.date)}</div>
-            <div className="tl-title">{m.title}</div>
-            {m.text && <p className="muted">{m.text}</p>}
-            {m.photo && <img className="tl-photo" src={m.photo} alt={m.title} />}
-            {!String(m.id).startsWith("d") && (
-              <button className="del" onClick={() => delMemory(m.id)}>eliminar</button>
-            )}
+      {/* Línea del tiempo — el corazón de la página */}
+      <div className="section-head">
+        <span className="section-head-title">Línea del tiempo</span>
+      </div>
+      <div className="card card-3">
+        <div className="stat-row" style={{ marginBottom: 18 }}>
+          <div className="stat">
+            <div className="stat-value">{allMemories.length}</div>
+            <div className="stat-label">📸 recuerdos</div>
           </div>
-        ))}
+          <div className="stat-divider" />
+          <div className="stat">
+            <div className="stat-value">{mounted ? capsules.length : 0}</div>
+            <div className="stat-label">⏳ cápsulas</div>
+          </div>
+        </div>
+
+        {allMemories.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-icon">💌</span>
+            <div className="empty-state-title">Todavía no hay recuerdos guardados</div>
+            <div className="empty-state-desc">Agreguen el primer capítulo de la historia de {voce} y {amor} 👇</div>
+          </div>
+        ) : (
+          <div className="timeline">
+            {allMemories.map((m) => (
+              <div className={`tl-item${m.id === justAddedId ? " tl-item-new" : ""}`} key={m.id}>
+                <div className="tl-date">{fmt(m.date)}</div>
+                <div className="tl-title">{m.title}</div>
+                {m.text && <p className="muted">{m.text}</p>}
+                {m.photo && <img className="tl-photo" src={m.photo} alt={m.title} />}
+                {!String(m.id).startsWith("d") && (
+                  <button className="del" onClick={() => delMemory(m.id)}>eliminar</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Agregar recuerdo */}
-      <div className="card">
-        <div className="section-title" style={{ margin: "0 0 10px" }}>Agregar un recuerdo</div>
+      <div className="section-head">
+        <span className="section-head-title">Agregar un recuerdo</span>
+      </div>
+      <div className="card card-2">
         <form ref={memForm} onSubmit={addMemory}>
           <div className="grid2">
             <div className="field" style={{ margin: "6px 0" }}>
@@ -181,9 +208,15 @@ function TimelineInner() {
       </div>
 
       {/* Cápsulas del tiempo */}
-      <div className="section-title">Cápsulas del tiempo ⏳</div>
+      <div className="section-head">
+        <span className="section-head-title">Cápsulas del tiempo ⏳</span>
+      </div>
       {mounted && capsules.length === 0 && (
-        <p className="hint">Todavía no hay ninguna cápsula. Graba un mensaje que se abra en el futuro 👇</p>
+        <div className="empty-state">
+          <span className="empty-state-icon">⏳</span>
+          <div className="empty-state-title">Todavía no hay ninguna cápsula</div>
+          <div className="empty-state-desc">Graba un mensaje que se abra en el futuro 👇</div>
+        </div>
       )}
       {mounted && capsules.map((c) => {
         const restam = daysUntil(c.unlockAt);
@@ -208,8 +241,10 @@ function TimelineInner() {
       })}
 
       {/* Crear cápsula */}
-      <div className="card" style={{ marginTop: 6 }}>
-        <div className="section-title" style={{ margin: "0 0 10px" }}>Crear una cápsula</div>
+      <div className="section-head">
+        <span className="section-head-title">Crear una cápsula</span>
+      </div>
+      <div className="card card-2">
         <form onSubmit={addCapsule}>
           <div className="field" style={{ margin: "6px 0" }}>
             <label>Mensaje para el futuro</label>

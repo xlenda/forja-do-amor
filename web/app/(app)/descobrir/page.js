@@ -263,25 +263,39 @@ function Quiz({ questions, order, labels, results, resultBadge, saved, onSave })
   if (result) {
     const r = results[result.top];
     return (
-      <div className="card">
+      <div className="card card-3">
         <div style={{ textAlign: "center" }}>
-          <span className="badge">{resultBadge}</span>
+          <span className="overline">{resultBadge}</span>
           <div key={result.top} className="quiz-result-emoji" style={{ fontSize: 46, margin: "14px 0 4px" }}>{r.emoji}</div>
           <h2 className="reveal-title" style={{ fontSize: 28 }}>{labels[result.top]}</h2>
         </div>
         <p className="muted" style={{ margin: "10px 0 18px" }}>{r.texto}</p>
-        <div className="card" style={{ background: "rgba(232,195,122,.08)", borderColor: "rgba(232,195,122,.3)" }}>
+        <div className="card card-1" style={{ background: "rgba(232,195,122,.08)", borderColor: "rgba(232,195,122,.3)" }}>
+          <span className="overline">Consejo</span>
           <p style={{ margin: 0 }}>{r.dica}</p>
         </div>
 
-        <div className="section-title" style={{ fontSize: 18, margin: "22px 0 10px" }}>Así quedó tu balance</div>
+        <div className="section-head">
+          <span className="section-head-title" style={{ fontSize: 18 }}>Así quedó tu balance</span>
+        </div>
         {order.map((k) => {
           const shown = Math.min(tick, result.counts[k] || 0);
           const barPct = total ? Math.round((shown / total) * 100) : 0;
+          const isTop = k === result.top;
           return (
             <div key={k} style={{ marginBottom: 14 }}>
-              <div className="compat-line" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: 0 }}>
-                <span>{labels[k]}</span>
+              <div
+                className="compat-line"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  margin: 0,
+                  color: isTop ? "var(--gold-bright)" : undefined,
+                  fontWeight: isTop ? 700 : 400,
+                }}
+              >
+                <span>{isTop ? "★ " : ""}{labels[k]}</span>
                 <b>{shown}</b>
               </div>
               <div className="progress" style={{ height: 5, margin: "6px 0 0" }}>
@@ -302,7 +316,7 @@ function Quiz({ questions, order, labels, results, resultBadge, saved, onSave })
   const chosen = answers[step];
 
   return (
-    <div className="card">
+    <div className="card card-2">
       <div className="progress"><i style={{ width: `${pct}%` }} /></div>
       <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>Pregunta {step + 1} de {total}</div>
       <div className="section-title" style={{ margin: "0 0 14px" }}>{current.q}</div>
@@ -337,7 +351,73 @@ function Quiz({ questions, order, labels, results, resultBadge, saved, onSave })
   );
 }
 
+/* ---------------- Cómo enfrentan los conflictos (2 preguntas simples, sin motor de quiz) ---------------- */
+const DESAFIOS_CONFLITO = ["Comunicación", "Rutina vs. romance", "Confianza", "Redescubrirse"];
+
+function Conflitos({ voce, amor, saved, onSave }) {
+  const [conflicto, setConflicto] = useState(saved?.conflicto || "");
+  const [desafio, setDesafio] = useState(saved?.desafio || "");
+
+  function elegirConflicto(op) {
+    setConflicto(op);
+    onSave({ conflicto: op, desafio });
+  }
+  function elegirDesafio(op) {
+    setDesafio(op);
+    onSave({ conflicto, desafio: op });
+  }
+
+  const completo = Boolean(conflicto && desafio);
+
+  return (
+    <div className={`card ${completo ? "card-3" : "card-2"}`}>
+      <div className="section-title" style={{ marginTop: 0 }}>Cuando hay un conflicto entre {voce} y {amor}, ¿quién suele dar el primer paso?</div>
+      <div className="opts" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 10 }}>
+        {[voce, amor, "Los dos por igual", "Todavía ninguno"].map((op) => (
+          <button key={op} type="button" className={`opt ${conflicto === op ? "sel" : ""}`} style={{ textAlign: "center" }} onClick={() => elegirConflicto(op)}>
+            {op}
+          </button>
+        ))}
+      </div>
+
+      <div className="section-title" style={{ marginTop: 24 }}>¿Cuál es el desafío que más quieren resolver juntos?</div>
+      <div className="opts" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 10 }}>
+        {DESAFIOS_CONFLITO.map((op) => (
+          <button key={op} type="button" className={`opt ${desafio === op ? "sel" : ""}`} style={{ textAlign: "center" }} onClick={() => elegirDesafio(op)}>
+            {op}
+          </button>
+        ))}
+      </div>
+
+      {completo && (
+        <div className="stat-row fade-in" style={{ marginTop: 20, borderTop: "1px solid var(--border-subtle)", paddingTop: 16 }}>
+          <div className="stat">
+            <div className="stat-value" style={{ fontSize: 16 }}>{conflicto}</div>
+            <div className="stat-label">da el primer paso</div>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat">
+            <div className="stat-value" style={{ fontSize: 16 }}>{desafio}</div>
+            <div className="stat-label">desafío a resolver</div>
+          </div>
+        </div>
+      )}
+      {completo && (
+        <p className="disclaimer" style={{ marginTop: 10, textAlign: "center" }}>
+          Guardado — esto ayuda a personalizar lo que ven en Reconectar.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ---------------- Página ---------------- */
+const QUIZ_TABS = [
+  { id: "linguagem", label: "Lenguaje del amor", icon: "💬" },
+  { id: "apego", label: "Estilo de apego", icon: "🧭" },
+  { id: "conflitos", label: "Conflictos", icon: "🤝" },
+];
+
 function DescobrirInner() {
   const params = useSearchParams();
   const voce = params.get("voce") || "Tú";
@@ -349,7 +429,7 @@ function DescobrirInner() {
 
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState("linguagem");
-  const [data, setData] = useState({ linguagem: null, apego: null });
+  const [data, setData] = useState({ linguagem: null, apego: null, conflictos: null });
 
   useEffect(() => {
     setMounted(true);
@@ -357,9 +437,9 @@ function DescobrirInner() {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const d = JSON.parse(raw);
-        setData({ linguagem: d.linguagem || null, apego: d.apego || null });
+        setData({ linguagem: d.linguagem || null, apego: d.apego || null, conflictos: d.conflictos || null });
       } else {
-        setData({ linguagem: null, apego: null });
+        setData({ linguagem: null, apego: null, conflictos: null });
       }
     } catch {}
   }, [storageKey]);
@@ -374,6 +454,11 @@ function DescobrirInner() {
     });
   }
 
+  function isTabDone(id) {
+    if (id === "conflitos") return Boolean(data.conflictos?.conflicto && data.conflictos?.desafio);
+    return Boolean(data[id]);
+  }
+
   return (
     <main className="wrap">
       <div className="couple-header">
@@ -386,22 +471,44 @@ function DescobrirInner() {
         Dos pruebas rápidas para que {voce} y {amor} abran una buena conversación. No hay respuestas correctas ni incorrectas — solo una invitación a entenderse con más cariño.
       </p>
 
-      {/* Tabs */}
-      <div className="grid2" style={{ marginBottom: 20 }}>
-        <button
-          className={tab === "linguagem" ? "btn" : "btn btn-ghost"}
-          onClick={() => setTab("linguagem")}
-          type="button"
-        >
-          Lenguaje del amor
-        </button>
-        <button
-          className={tab === "apego" ? "btn" : "btn btn-ghost"}
-          onClick={() => setTab("apego")}
-          type="button"
-        >
-          Estilo de apego
-        </button>
+      {/* Tabs — control segmentado con estado de "completado" por prueba */}
+      <div className="card card-1" style={{ padding: "var(--sp-2)", marginBottom: "var(--sp-4)" }}>
+        <div style={{ display: "flex", gap: "var(--sp-2)" }}>
+          {QUIZ_TABS.map((t) => {
+            const active = tab === t.id;
+            const done = isTabDone(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-pressed={active}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "12px 6px",
+                  borderRadius: 16,
+                  border: active ? "1px solid rgba(212,175,55,.5)" : "1px solid transparent",
+                  background: active
+                    ? "linear-gradient(160deg, rgba(212,175,55,.18), rgba(31,13,61,.5))"
+                    : "transparent",
+                  boxShadow: active ? "0 10px 30px rgba(0,0,0,.3), 0 0 30px rgba(212,175,55,.14)" : "none",
+                  color: active ? "var(--gold-bright)" : "var(--ivory-dim)",
+                  cursor: "pointer",
+                  transition: "all .25s ease",
+                }}
+              >
+                <span style={{ fontSize: 20, lineHeight: 1 }}>{done ? "✓" : t.icon}</span>
+                <span style={{ fontSize: "var(--fs-caption)", fontWeight: active ? 700 : 500, textAlign: "center" }}>
+                  {t.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {!mounted ? (
@@ -417,7 +524,7 @@ function DescobrirInner() {
           saved={data.linguagem}
           onSave={(res) => saveQuiz("linguagem", res)}
         />
-      ) : (
+      ) : tab === "apego" ? (
         <Quiz
           key={`apego-${storageKey}`}
           questions={ATT_QUESTIONS}
@@ -427,6 +534,14 @@ function DescobrirInner() {
           resultBadge={`El estilo predominante de ${voce}`}
           saved={data.apego}
           onSave={(res) => saveQuiz("apego", res)}
+        />
+      ) : (
+        <Conflitos
+          key={`conflitos-${storageKey}`}
+          voce={voce}
+          amor={amor}
+          saved={data.conflictos}
+          onSave={(res) => saveQuiz("conflictos", res)}
         />
       )}
 

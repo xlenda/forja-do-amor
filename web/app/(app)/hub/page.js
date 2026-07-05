@@ -29,6 +29,9 @@ const AREAS = [
   { href: "/perfil", emoji: "⚙️", title: "Perfil", desc: "Suscripción, notificaciones y exportar tus datos" },
 ];
 
+// Debe ser el mismo criterio que RUTAS_LIBRES en app/(app)/layout.js — estas áreas nunca se bloquean.
+const AREAS_LIBRES = ["/hoje", "/timeline", "/perfil"];
+
 // Emoji que evoluciona según el tamaño de la racha — una pequeña recompensa visual, sin inventar datos.
 function streakEmoji(count) {
   if (count >= 30) return "💎";
@@ -54,6 +57,8 @@ function HubInner() {
   const [semana, setSemana] = useState(null);
   const [proximaFecha, setProximaFecha] = useState(null);
   const [selo, setSelo] = useState(false);
+  const [visitas, setVisitas] = useState(0);
+  const [tienePlan, setTienePlan] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -61,6 +66,21 @@ function HubInner() {
     setData(collectData(voce, amor));
     try {
       setSelo(localStorage.getItem(`gff-selo:${voce}:${amor}`) === "1");
+    } catch {}
+    try {
+      const vKey = `gff-visitas:${voce}:${amor}`;
+      const v = (parseInt(localStorage.getItem(vKey) || "0", 10) || 0) + 1;
+      localStorage.setItem(vKey, String(v));
+      setVisitas(v);
+    } catch {}
+    try {
+      const correlationCode = localStorage.getItem(`gff-correlation:${voce}:${amor}`);
+      if (correlationCode) {
+        fetch(`https://oddpro.pro/api-forja/api/subscription/${correlationCode}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((estado) => setTienePlan(Boolean(estado?.hasAccess)))
+          .catch(() => {});
+      }
     } catch {}
     const start = getCoupleStartDate(voce, amor);
     setAniversario(start ? nextAnniversary(start) : null);
@@ -102,6 +122,16 @@ function HubInner() {
   if (data && data.capsulesCount === 0) pendencias.push({ href: "/timeline", label: "Sellar la primera cápsula del tiempo" });
   if (data && !(data.linguagemFeito && data.apegoFeito)) pendencias.push({ href: "/descobrir", label: "Descubrir el lenguaje del amor de ustedes" });
 
+  // Solo presentación: decide cuál de los avisos del momento merece el mayor peso visual (card-3)
+  // en esta pantalla. No cambia ninguna condición de negocio, solo elige a cuál dar énfasis.
+  const urgente = streak.broke && !reparado ? "streak" : distante >= 2 ? "distancia" : "pendencias";
+
+  const hayVistazo =
+    recuerdoHoy.length > 0 ||
+    (semana && (semana.hojeAnsweredDays > 0 || semana.memoriesThisWeek > 0)) ||
+    !!proximaFecha ||
+    (aniversario && aniversario.days <= 60);
+
   return (
     <main className="wrap">
       <div className="couple-header">
@@ -109,10 +139,34 @@ function HubInner() {
         <div className="couple-names">{voce} &amp; {amor}</div>
         <div className="couple-meta">reconectar, recordar y crecer juntos 💛</div>
         {mounted && selo && <div className="badge" style={{ marginTop: 8 }}>🛡️ Guardianes de su propia historia</div>}
+        {mounted && !tienePlan && (
+          <Link href={`/planos${qs()}`} className="btn-tertiary" style={{ display: "inline-block", marginTop: 10 }}>
+            Ver planes y suscripción →
+          </Link>
+        )}
+        {mounted && data && (
+          <div className="stat-row" style={{ marginTop: 16, maxWidth: 360, marginLeft: "auto", marginRight: "auto" }}>
+            <div className="stat">
+              <div className="stat-value">{streak.count}</div>
+              <div className="stat-label">{streakEmoji(streak.count)} seguidos</div>
+            </div>
+            <div className="stat-divider" />
+            <div className="stat">
+              <div className="stat-value">{data.memoriesCount || 0}</div>
+              <div className="stat-label">📸 recuerdos</div>
+            </div>
+            <div className="stat-divider" />
+            <div className="stat">
+              <div className="stat-value">{visitas}</div>
+              <div className="stat-label">👋 visitas</div>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* El aviso más urgente del momento (racha rota > distanciamiento > pendientes de hoy) recibe card-3 */}
       {mounted && streak.broke && !reparado && (
-        <div className="card fade-in" style={{ textAlign: "center", marginBottom: 16 }}>
+        <div className={`card fade-in ${urgente === "streak" ? "card-3" : "card-2"}`} style={{ textAlign: "center", marginBottom: 16 }}>
           <p className="compat-line" style={{ margin: 0 }}>
             Qué bueno tenerlos de vuelta, {voce} &amp; {amor} 💛 La racha vuelve a empezar hoy — lo que importa es seguir cuidando la relación, a su propio ritmo.
           </p>
@@ -129,14 +183,14 @@ function HubInner() {
         </div>
       )}
       {mounted && reparado && (
-        <div className="card fade-in" style={{ textAlign: "center", marginBottom: 16 }}>
+        <div className="card card-2 fade-in" style={{ textAlign: "center", marginBottom: 16 }}>
           <p className="compat-line" style={{ margin: 0 }}>Racha recuperada 🔥 Siguen en {streak.count} {streak.count === 1 ? "día" : "días"} seguidos.</p>
         </div>
       )}
 
       {mounted && distante >= 2 && (
-        <div className="card fade-in" style={{ textAlign: "center", marginBottom: 16, borderColor: "rgba(212,175,55,.4)" }}>
-          <span className="badge">🌧️ {distante} días marcando "distantes"</span>
+        <div className={`card fade-in ${urgente === "distancia" ? "card-3" : "card-1"}`} style={{ textAlign: "center", marginBottom: 16 }}>
+          <span className="badge"><span className="overline">🌧️ {distante} días marcando "distantes"</span></span>
           <p className="compat-line" style={{ marginTop: 10 }}>
             {voce} &amp; {amor} vienen marcando el clima como distante. Un pequeño paso ahora puede ayudar.
           </p>
@@ -145,10 +199,10 @@ function HubInner() {
       )}
 
       {mounted && (
-        <div className="card fade-in" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <div className="section-title" style={{ margin: 0 }}>Hoy para ustedes</div>
-            <span className="badge">{streakEmoji(streak.count)} {streak.count} {streak.count === 1 ? "día" : "días"} seguidos</span>
+        <div className={`card fade-in ${urgente === "pendencias" ? "card-3" : "card-2"}`} style={{ marginBottom: 16 }}>
+          <div className="section-head" style={{ margin: 0 }}>
+            <span className="section-head-title">Hoy para ustedes</span>
+            <span className="section-head-action">{streakEmoji(streak.count)} {streak.count} {streak.count === 1 ? "día" : "días"}</span>
           </div>
           {pendencias.length > 0 ? (
             <div style={{ marginTop: 12 }}>
@@ -164,8 +218,15 @@ function HubInner() {
         </div>
       )}
 
+      {/* Recuerdos, resumen semanal y fechas próximas: contenido secundario, agrupado bajo un mismo encabezado */}
+      {mounted && hayVistazo && (
+        <div className="section-head">
+          <span className="section-head-title">Un vistazo rápido</span>
+        </div>
+      )}
+
       {mounted && recuerdoHoy.length > 0 && (
-        <div className="card fade-in" style={{ marginBottom: 16 }}>
+        <div className="card card-1 fade-in" style={{ marginBottom: 16 }}>
           <div className="section-title" style={{ margin: "0 0 8px" }}>
             Hace {recuerdoHoy[0].yearsAgo === 1 ? "1 año" : `${recuerdoHoy[0].yearsAgo} años`}
           </div>
@@ -176,7 +237,7 @@ function HubInner() {
       )}
 
       {mounted && semana && (semana.hojeAnsweredDays > 0 || semana.memoriesThisWeek > 0) && (
-        <div className="card fade-in" style={{ marginBottom: 16 }}>
+        <div className="card card-1 fade-in" style={{ marginBottom: 16 }}>
           <div className="section-title" style={{ margin: "0 0 8px" }}>Esta semana</div>
           <p className="muted" style={{ margin: 0 }}>
             Respondieron juntos la pregunta del día en <b>{semana.hojeAnsweredDays}</b> de 7 días
@@ -186,8 +247,8 @@ function HubInner() {
       )}
 
       {mounted && proximaFecha && (
-        <div className="card" style={{ textAlign: "center", marginBottom: 16, borderColor: "rgba(212,175,55,.4)" }}>
-          <span className="badge">📅 {proximaFecha.label}</span>
+        <div className="card card-1" style={{ textAlign: "center", marginBottom: 16 }}>
+          <span className="badge"><span className="overline">📅 {proximaFecha.label}</span></span>
           <p className="compat-line" style={{ marginTop: 10 }}>
             {proximaFecha.dias === 0 ? "Es hoy 💛" : `Faltan ${proximaFecha.dias} ${proximaFecha.dias === 1 ? "día" : "días"}.`}
           </p>
@@ -195,8 +256,8 @@ function HubInner() {
       )}
 
       {mounted && aniversario && aniversario.days <= 60 && (
-        <div className="card" style={{ textAlign: "center", marginBottom: 16, borderColor: "rgba(212,175,55,.4)" }}>
-          <span className="badge">💍 Aniversario que se acerca</span>
+        <div className="card card-1" style={{ textAlign: "center", marginBottom: 16 }}>
+          <span className="badge"><span className="overline">💍 Aniversario que se acerca</span></span>
           <p className="compat-line" style={{ marginTop: 10 }}>
             Faltan <b>{aniversario.days}</b> {aniversario.days === 1 ? "día" : "días"} para que {voce} &amp; {amor} cumplan <b>{aniversario.anos}</b> {aniversario.anos === 1 ? "año" : "años"} juntos.
           </p>
@@ -204,18 +265,36 @@ function HubInner() {
         </div>
       )}
 
-      <div className="grid2" style={{ marginTop: 8 }}>
-        {AREAS.map((a) => (
-          <Link key={a.href} className="card" href={`${a.href}${qs()}`} style={{ display: "block" }}>
-            <div style={{ fontSize: 30 }}>{a.emoji}</div>
-            <div className="section-title" style={{ margin: "6px 0 4px" }}>{a.title}</div>
-            <p className="muted" style={{ margin: 0 }}>{a.desc}</p>
-          </Link>
-        ))}
+      {mounted && !tienePlan && visitas >= 2 && data?.memoriesCount >= 1 && (
+        <div className="card card-2 card-accent" style={{ textAlign: "center", marginBottom: 16 }}>
+          <span className="badge"><span className="overline">💛 Ya están usando Forja del Amor</span></span>
+          <p className="compat-line" style={{ marginTop: 10 }}>
+            {voce} &amp; {amor} ya guardaron {data.memoriesCount} {data.memoriesCount === 1 ? "recuerdo" : "recuerdos"} y volvieron {visitas} veces. ¿Quieren garantizar que esto siga guardado y creciendo?
+          </p>
+          <Link className="btn" style={{ marginTop: 10 }} href={`/planos${qs()}`}>Ver cómo seguir →</Link>
+        </div>
+      )}
+
+      <div className="section-head">
+        <span className="section-head-title">Explorar</span>
+      </div>
+      <div className="card card-1">
+        <div className="feature-list">
+          {AREAS.map((a) => {
+            const bloqueada = mounted && !tienePlan && !AREAS_LIBRES.includes(a.href);
+            return (
+              <Link key={a.href} className="feature-item" href={`${a.href}${qs()}`} style={{ textDecoration: "none" }}>
+                <div className="feature-item-icon">{a.emoji}</div>
+                <div className="feature-item-text"><b>{a.title}</b><span>{a.desc}</span></div>
+                {bloqueada && <span className="feature-item-lock" title="Se abre con la suscripción">🔒</span>}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="card" style={{ textAlign: "center", marginTop: 16 }}>
-        <span className="badge">🎁 Invita a una pareja amiga</span>
+      <div className="card card-1" style={{ textAlign: "center", marginTop: 24 }}>
+        <span className="badge"><span className="overline">🎁 Invita a una pareja amiga</span></span>
         <p className="muted" style={{ marginTop: 10 }}>
           Cada pareja invitada que se suscriba les da <b>1 mes gratis</b> a ambos — a quien invita y a quien llega.
         </p>

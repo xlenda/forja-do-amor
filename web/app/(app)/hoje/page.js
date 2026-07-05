@@ -169,10 +169,12 @@ function HojeInner() {
         <div className="couple-meta">{fmtBR(iso)}</div>
       </div>
 
-      <div className="card">
-        <div className="section-title" style={{ marginTop: 0 }}>Pregunta del día</div>
-        <span className="badge" style={{ fontSize: 11 }}>Tema: {perguntaDoDia(iso).tema}</span>
-        <p className="compat-line" style={{ fontSize: 18, marginTop: 8 }}>{perguntaDoDia(iso).q}</p>
+      <div className="section-head">
+        <span className="section-head-title">Pregunta del día</span>
+        <span className="section-head-action">Tema: {perguntaDoDia(iso).tema}</span>
+      </div>
+      <div className="card card-3">
+        <p className="compat-line" style={{ fontSize: 18 }}>{perguntaDoDia(iso).q}</p>
 
         {!mounted ? null : !ambos ? (
           <>
@@ -225,8 +227,11 @@ function HojeInner() {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
-        <div className="section-title" style={{ marginTop: 0 }}>Un toque rápido, sin escribir nada</div>
+      <div className="section-head">
+        <span className="section-head-title">Un toque rápido</span>
+        <span className="section-head-action">sin escribir nada</span>
+      </div>
+      <div className="card card-2" style={{ textAlign: "center" }}>
         <p className="muted" style={{ marginTop: 0 }}>Para los días con poco tiempo — un aviso de "estoy pensando en ti".</p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
           <button className={`opt ${toqueVoce ? "sel" : ""}`} style={{ flex: "1 1 140px" }} onClick={() => enviarToque("voce")} disabled={toqueVoce}>
@@ -241,9 +246,11 @@ function HojeInner() {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="section-title" style={{ marginTop: 0 }}>¿Cómo está el clima de ustedes hoy?</div>
-        <div className="opts" style={{ gridTemplateColumns: "1fr 1fr 1fr", marginTop: 10 }}>
+      <div className="section-head">
+        <span className="section-head-title">¿Cómo está el clima de ustedes hoy?</span>
+      </div>
+      <div className="card card-2">
+        <div className="opts" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
           {CLIMAS.map((c) => (
             <button
               key={c.v}

@@ -214,8 +214,10 @@ function AgirInner() {
       </div>
 
       {/* 1) Idea de encuentro */}
-      <div className="card" style={{ marginTop: 8 }}>
-        <div className="section-title" style={{ margin: "0 0 6px" }}>Idea para una cita</div>
+      <div className="section-head">
+        <span className="section-head-title">Idea para una cita</span>
+      </div>
+      <div className="card card-2">
         <p className="muted" style={{ marginTop: 0 }}>¿Sin tiempo para pensar? Dejen que nosotros sugiramos.</p>
         {mounted && linguagem && (
           <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0", cursor: "pointer" }}>
@@ -224,60 +226,66 @@ function AgirInner() {
           </label>
         )}
         <button className="btn" onClick={sortear} style={{ marginTop: 4 }}>Sortear una idea ✨</button>
-
-        {idea && (
-          <div
-            key={drawKey}
-            className="fade-in"
-            style={{ marginTop: 16, padding: 16, borderRadius: 12, border: "1px solid var(--line)", background: "rgba(255,255,255,.05)" }}
-          >
-            <span className="badge" style={{ marginBottom: 8 }}>{idea.tag}</span>
-            <p style={{ margin: "10px 0 0", fontSize: 17 }}>{idea.text}</p>
-            <button
-              className="btn-ghost"
-              onClick={() => toggleFav(idea.id)}
-              style={{ marginTop: 12, padding: "8px 16px", borderRadius: 999, cursor: "pointer", fontWeight: 700 }}
-            >
-              {favorites.includes(idea.id) ? "💛 En favoritas" : "🤍 Agregar a favoritas"}
-            </button>
-          </div>
-        )}
-
-        {mounted && favList.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <div className="section-title" style={{ fontSize: 18, margin: "0 0 8px" }}>Favoritas</div>
-            {favList.map((f) => (
-              <div key={f.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-                <button
-                  onClick={() => toggleFav(f.id)}
-                  title="Quitar de favoritas"
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1.4 }}
-                >
-                  💛
-                </button>
-                <span style={{ flex: 1 }}>
-                  <span className="badge" style={{ fontSize: 10, padding: "3px 10px", marginRight: 6 }}>{f.tag}</span>
-                  {f.text}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
+      {/* La idea recién sorteada es el foco de la pantalla mientras existe */}
+      {idea && (
+        <div key={drawKey} className="card card-3 fade-in" style={{ marginTop: 14, textAlign: "center" }}>
+          <span className="badge">{idea.tag}</span>
+          <p style={{ margin: "14px 0 0", fontSize: 18 }}>{idea.text}</p>
+          <button
+            className="btn-ghost"
+            onClick={() => toggleFav(idea.id)}
+            style={{ marginTop: 14, padding: "8px 16px", borderRadius: 999, cursor: "pointer", fontWeight: 700 }}
+          >
+            {favorites.includes(idea.id) ? "💛 En favoritas" : "🤍 Agregar a favoritas"}
+          </button>
+        </div>
+      )}
+
+      {mounted && (
+        <div className="card card-1" style={{ marginTop: 14 }}>
+          {favList.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-state-icon">🤍</span>
+              <div className="empty-state-title">Todavía no hay favoritas</div>
+              <p className="empty-state-desc">Sorteen una idea y guarden aquí las que más les gusten.</p>
+            </div>
+          ) : (
+            <>
+              <span className="overline">Favoritas ({favList.length})</span>
+              <div className="feature-list" style={{ marginTop: 10 }}>
+                {favList.map((f) => (
+                  <div key={f.id} className="feature-item">
+                    <button
+                      className="feature-item-icon"
+                      onClick={() => toggleFav(f.id)}
+                      title="Quitar de favoritas"
+                      style={{ cursor: "pointer" }}
+                    >
+                      💛
+                    </button>
+                    <div className="feature-item-text" style={{ flex: 1 }}>
+                      <b>{f.tag}</b>
+                      <span>{f.text}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* 2) Desafío de 7 días */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="section-title" style={{ margin: "0 0 6px" }}>Desafío de 7 días</div>
+      <div className="section-head">
+        <span className="section-head-title">Desafío de 7 días</span>
+        {mounted && <span className="section-head-action">{done.length}/{CHALLENGE.length}</span>}
+      </div>
+      <div className="card card-2">
         <p className="muted" style={{ marginTop: 0 }}>Un gesto por día. A su ritmo, vayan marcando a medida que lo hagan.</p>
 
-        {mounted && (
-          <>
-            <div className="progress"><i style={{ width: `${progress}%` }} /></div>
-            <p className="hint" style={{ textAlign: "left", marginTop: -14, marginBottom: 14 }}>
-              {done.length} de {CHALLENGE.length} completados
-            </p>
-          </>
-        )}
+        {mounted && <div className="progress"><i style={{ width: `${progress}%` }} /></div>}
 
         <div className="opts">
           {CHALLENGE.map((c, idx) => {
@@ -306,18 +314,22 @@ function AgirInner() {
       </div>
 
       {/* 3) Gesto del día */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="section-title" style={{ margin: "0 0 6px" }}>Gesto del día</div>
+      <div className="section-head">
+        <span className="section-head-title">Gesto del día</span>
+      </div>
+      <div className="card card-2" style={{ textAlign: "center" }}>
         <p className="muted" style={{ marginTop: 0 }}>Una idea simple, una por día — la misma para ustedes dos hoy.</p>
-        <div style={{ marginTop: 10, padding: 18, borderRadius: 12, background: "linear-gradient(160deg, #171436, #2a2456)", border: "1px solid rgba(232,195,122,.25)", textAlign: "center" }}>
+        <div style={{ marginTop: 10, padding: 18, borderRadius: 12, background: "linear-gradient(160deg, #171436, #2a2456)", border: "1px solid rgba(232,195,122,.25)" }}>
           <div style={{ fontSize: 28 }}>💛</div>
           <p style={{ margin: "8px 0 0", fontSize: 18 }}>{gesture}</p>
         </div>
       </div>
 
       {/* 4) Meta de la semana */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="section-title" style={{ margin: "0 0 6px" }}>Meta de la semana</div>
+      <div className="section-head">
+        <span className="section-head-title">Meta de la semana</span>
+      </div>
+      <div className="card card-2">
         <p className="muted" style={{ marginTop: 0 }}>Acuerden algo para cuidar juntos esta semana.</p>
 
         <form onSubmit={saveGoal}>
@@ -352,8 +364,13 @@ function AgirInner() {
       </div>
 
       {/* 5) Sueños de la pareja (largo plazo) */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="section-title" style={{ margin: "0 0 6px" }}>Sueños de la pareja</div>
+      <div className="section-head">
+        <span className="section-head-title">Sueños de la pareja</span>
+        {mounted && dreams.length > 0 && (
+          <span className="section-head-action">{dreams.filter((d) => d.done).length}/{dreams.length}</span>
+        )}
+      </div>
+      <div className="card card-2">
         <p className="muted" style={{ marginTop: 0 }}>Metas más grandes, sin fecha límite — se quedan aquí hasta que las cumplan.</p>
 
         <form onSubmit={addDream} style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
@@ -367,19 +384,28 @@ function AgirInner() {
           <button className="btn" type="submit">Agregar sueño</button>
         </form>
 
+        {mounted && dreams.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-icon">🌠</span>
+            <div className="empty-state-title">Todavía no hay sueños guardados</div>
+            <p className="empty-state-desc">Agreguen su primera meta grande y quédense acá hasta cumplirla.</p>
+          </div>
+        )}
+
         {mounted && dreams.length > 0 && (
-          <div style={{ marginTop: 14 }}>
+          <div className="feature-list" style={{ marginTop: 14 }}>
             {dreams.map((d) => (
-              <div key={d.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+              <div key={d.id} className="feature-item">
                 <button
+                  className="feature-item-icon"
                   onClick={() => toggleDream(d.id)}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1.4 }}
+                  style={{ cursor: "pointer" }}
                 >
                   {d.done ? "✅" : "⬜"}
                 </button>
-                <span style={{ flex: 1, textDecoration: d.done ? "line-through" : "none", opacity: d.done ? 0.7 : 1 }}>
-                  {d.text}
-                </span>
+                <div className="feature-item-text" style={{ flex: 1, textDecoration: d.done ? "line-through" : "none", opacity: d.done ? 0.7 : 1 }}>
+                  <span>{d.text}</span>
+                </div>
                 <button className="del" onClick={() => delDream(d.id)}>quitar</button>
               </div>
             ))}
