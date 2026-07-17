@@ -8,7 +8,7 @@ const TRANSITIONS = {
   active: ["past_due", "canceled"],
   past_due: ["active", "expired", "canceled"],
   canceled: ["active"],
-  expired: [],
+  expired: ["active"],
 };
 
 function canTransition(from, to) {

@@ -11,6 +11,18 @@ const HOTMART_CHECKOUT_ELEMENTS_SRC = "https://checkout.hotmart.com/lib/hotmart-
 // Fallback si el checkout embutido falla por algún motivo (red, script bloqueado, etc.)
 const HOTMART_CHECKOUT_FALLBACK = "https://pay.hotmart.com/W105128423R?bid=1783049846019";
 
+// Mismo patrón que fetchWithTimeout de Cosmic Guide/lib/aiClient.js (app RN): envuelve
+// fetch() con AbortController para que una conexión colgada no deje el loading trabado.
+async function fetchWithTimeout(url, options, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 function fmtES(iso) {
   if (!iso) return "";
@@ -135,7 +147,7 @@ function PlanosInner() {
     setCheckoutCargando(true);
     setCheckoutAberto(true);
     try {
-      const resp = await fetch(`${API_BASE}/api/checkout/initiate`, {
+      const resp = await fetchWithTimeout(`${API_BASE}/api/checkout/initiate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ coupleName: voce && amor ? `${voce} & ${amor}` : undefined }),

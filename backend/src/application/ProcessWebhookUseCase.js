@@ -8,16 +8,40 @@ class ProcessWebhookUseCase {
   execute({ rawBody, headers, payload }) {
     const signatureOk = this.paymentProvider.verifyWebhookSignature(rawBody, headers);
     if (!signatureOk) {
+      // correlation_code é NOT NULL em subscription_events (schema em infrastructure/db.js) e o
+      // payload ainda nem foi parseado aqui, então não existe correlationCode de verdade — usamos
+      // um marcador textual em vez de null pra não violar a constraint e perder o registro de auditoria.
+      this.repository.logEvent({
+        correlationCode: "(sem correlationCode)",
+        fromStatus: null,
+        toStatus: null,
+        rawEvent: "REJEITADO(assinatura inválida)",
+        rawPayload: payload,
+      });
       return { ok: false, reason: "assinatura inválida" };
     }
 
     const event = this.paymentProvider.parseWebhookEvent(payload);
     if (!event.correlationCode) {
+      this.repository.logEvent({
+        correlationCode: "(sem correlationCode)",
+        fromStatus: null,
+        toStatus: null,
+        rawEvent: "REJEITADO(sem correlationCode no payload)",
+        rawPayload: payload,
+      });
       return { ok: false, reason: "sem correlationCode (xcod) no payload" };
     }
 
     const subscription = this.repository.findByCorrelationCode(event.correlationCode);
     if (!subscription) {
+      this.repository.logEvent({
+        correlationCode: event.correlationCode,
+        fromStatus: null,
+        toStatus: null,
+        rawEvent: "REJEITADO(correlationCode desconhecido)",
+        rawPayload: payload,
+      });
       return { ok: false, reason: "correlationCode desconhecido" };
     }
 
@@ -41,6 +65,7 @@ class ProcessWebhookUseCase {
     if (event.amountCents) subscription.amountCents = event.amountCents;
     if (event.currency) subscription.currency = event.currency;
     if (event.providerSubscriptionId) subscription.providerSubscriptionId = event.providerSubscriptionId;
+    if (event.currentPeriodEnd) subscription.currentPeriodEnd = event.currentPeriodEnd;
 
     this.repository.save(subscription);
     this.repository.logEvent({

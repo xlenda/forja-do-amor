@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 const STEPS = ["Ustedes", "Signo y Nacimiento", "Energía", "Cartas", "Astros"];
 import { SIGNS, compatibility, compatPercent, cosmicNumbers, frequenciaFor, CARDS, moonSign, signoFromDate } from "@/lib/signs.es";
@@ -93,7 +92,6 @@ function horaDorada(seed) {
 const hoyISO = new Date().toISOString().slice(0, 10);
 
 export default function Quiz() {
-  const router = useRouter();
   const [step, setStep] = useState(1);
   const [voce, setVoce] = useState("");
   const [amor, setAmor] = useState("");
@@ -202,8 +200,10 @@ export default function Quiz() {
     try {
       localStorage.removeItem("gff-quiz-draft");
     } catch {}
-    const q = new URLSearchParams({ voce, amor, sa: signoVoce, sb: signoAmor, en: desejo });
-    router.push(`/selar?${q.toString()}`);
+    // Este quiz do funil é sempre em espanhol — lang=es faz o Cosmic Guide já
+    // abrir na Home/Quiz em espanhol, sem depender de detecção nenhuma no app.
+    const q = new URLSearchParams({ voce, amor, sa: signoVoce, sb: signoAmor, en: desejo, lang: "es" });
+    window.location.href = `https://oddpro.pro/cosmic-guide/?${q.toString()}`;
   }
 
   function avancar() {

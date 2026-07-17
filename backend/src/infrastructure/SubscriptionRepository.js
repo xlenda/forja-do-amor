@@ -50,7 +50,7 @@ class SubscriptionRepository {
       SET status = @status, provider_subscription_id = @providerSubscriptionId,
           amount_cents = COALESCE(@amountCents, amount_cents),
           currency = COALESCE(@currency, currency),
-          current_period_end = @currentPeriodEnd, updated_at = @updatedAt
+          current_period_end = COALESCE(@currentPeriodEnd, current_period_end), updated_at = @updatedAt
       WHERE correlation_code = @correlationCode
     `).run({
       status: subscription.status,

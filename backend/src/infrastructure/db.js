@@ -32,6 +32,15 @@ CREATE TABLE IF NOT EXISTS subscription_events (
   raw_payload TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  sign_name TEXT,
+  sign_icon TEXT,
+  created_at TEXT NOT NULL
+);
 `);
 
 module.exports = { db };

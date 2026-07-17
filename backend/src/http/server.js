@@ -1,8 +1,11 @@
 const express = require("express");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 
 const { SubscriptionRepository } = require("../infrastructure/SubscriptionRepository");
 const { HotmartPaymentProvider } = require("../infrastructure/HotmartPaymentProvider");
+const { AnthropicChatProvider } = require("../infrastructure/AnthropicChatProvider");
+const { PushSubscriptionRepository } = require("../infrastructure/PushSubscriptionRepository");
 const { InitiateCheckoutUseCase } = require("../application/InitiateCheckoutUseCase");
 const { ProcessWebhookUseCase } = require("../application/ProcessWebhookUseCase");
 const { GetSubscriptionStatusUseCase } = require("../application/GetSubscriptionStatusUseCase");
@@ -10,21 +13,41 @@ const { GetSubscriptionStatusUseCase } = require("../application/GetSubscription
 const PORT = process.env.PORT || 3005;
 const HOTMART_HOTTOK = process.env.HOTMART_HOTTOK || "";
 const HOTMART_OFFER_CODE = process.env.HOTMART_OFFER_CODE || "";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://oddpro.pro";
+// Lista separada por vírgula — este backend atende DOIS frontends (o funil em
+// oddpro.pro e o app Cosmic Guide em cosmicguide.cloud). Antes disso só um
+// valor era possível, então cosmicguide.cloud nunca batia com o Access-Control-
+// Allow-Origin devolvido e o navegador bloqueava silenciosamente toda chamada
+// de /api/chat, /api/palm, /api/coffee e /api/dream vinda do app — o fallback
+// mockado honesto (lib/aiClient.js no app) escondia o erro, então a IA real
+// nunca respondeu em produção sem que ninguém percebesse.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || "https://oddpro.pro")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "";
 
 // Troca de processador de pagamento no futuro = trocar só esta linha por outra classe
 // que implemente a mesma interface PaymentProvider. Nada abaixo precisa mudar.
 const paymentProvider = new HotmartPaymentProvider({ hottok: HOTMART_HOTTOK, offerCode: HOTMART_OFFER_CODE });
 const repository = new SubscriptionRepository();
+const pushRepository = new PushSubscriptionRepository();
 
 const initiateCheckout = new InitiateCheckoutUseCase(repository, paymentProvider);
 const processWebhook = new ProcessWebhookUseCase(repository, paymentProvider);
 const getSubscriptionStatus = new GetSubscriptionStatusUseCase(repository);
 
+// Sem chave configurada, os endpoints /api/chat, /api/palm, /api/coffee e /api/dream
+// respondem 503 em vez de derrubar o processo — permite subir o deploy antes de a chave existir.
+const aiProvider = ANTHROPIC_API_KEY ? new AnthropicChatProvider({ apiKey: ANTHROPIC_API_KEY }) : null;
+
 const app = express();
-app.use(cors({ origin: ALLOWED_ORIGIN }));
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(
   express.json({
+    limit: "10mb", // fotos em base64 (leitura de mão) passam do limite padrão de 100kb
     verify: (req, _res, buf) => {
       req.rawBody = buf.toString("utf8");
     },
@@ -33,7 +56,27 @@ app.use(
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.post("/api/checkout/initiate", async (req, res) => {
+// Sem isso, qualquer um que descubra a URL pode martelar os endpoints de IA
+// (cada chamada custa de verdade na conta da Anthropic) ou spammar criação de
+// assinaturas pendentes. Limite por IP — generoso o bastante pro uso real do
+// app, restritivo o bastante pra impedir abuso automatizado.
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições — tente novamente em alguns minutos." },
+});
+
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições — tente novamente em alguns minutos." },
+});
+
+app.post("/api/checkout/initiate", checkoutLimiter, async (req, res) => {
   try {
     const { coupleName, customerEmail, plan, amountCents, currency } = req.body || {};
     const result = await initiateCheckout.execute({ coupleName, customerEmail, plan, amountCents, currency });
@@ -49,12 +92,158 @@ app.get("/api/subscription/:correlationCode", (req, res) => {
   res.json(result);
 });
 
-app.post("/webhook/hotmart", (req, res) => {
+// Mesmo limite do maxLength={500} do TextInput em ChatScreen.js — o client já
+// trava a digitação nesse tamanho, isso aqui é a garantia server-side (um
+// cliente alterado ou uma chamada direta à API não deve conseguir gastar
+// tokens da Anthropic com uma mensagem gigante).
+const CHAT_MESSAGE_MAX_LENGTH = 500;
+
+app.post("/api/chat", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { personaId, message, history } = req.body || {};
+    if (!message) return res.status(400).json({ error: "message é obrigatório" });
+    if (typeof message !== "string" || message.length > CHAT_MESSAGE_MAX_LENGTH) {
+      return res.status(400).json({ error: `message deve ter no máximo ${CHAT_MESSAGE_MAX_LENGTH} caracteres` });
+    }
+    const reply = await aiProvider.chat({ personaId, message, history });
+    console.log("[api/chat] sucesso");
+    res.json({ reply });
+  } catch (err) {
+    console.error("[api/chat] erro:", err.message);
+    res.status(500).json({ error: "falha ao gerar resposta" });
+  }
+});
+
+app.post("/api/palm", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { imageBase64, mediaType } = req.body || {};
+    if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
+    const reading = await aiProvider.analyzePalm({ imageBase64, mediaType });
+    console.log("[api/palm] sucesso");
+    res.json(reading);
+  } catch (err) {
+    console.error("[api/palm] erro:", err.message);
+    res.status(500).json({ error: "falha ao analisar a imagem" });
+  }
+});
+
+app.post("/api/coffee", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { imageBase64, mediaType } = req.body || {};
+    if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
+    const reading = await aiProvider.analyzeCoffee({ imageBase64, mediaType });
+    console.log("[api/coffee] sucesso");
+    res.json(reading);
+  } catch (err) {
+    console.error("[api/coffee] erro:", err.message);
+    res.status(500).json({ error: "falha ao analisar a imagem" });
+  }
+});
+
+// Mesmo limite do maxLength={2000} do TextInput em DreamScreen.js — mesma
+// lógica do CHAT_MESSAGE_MAX_LENGTH acima.
+const DREAM_TEXT_MAX_LENGTH = 2000;
+
+app.post("/api/dream", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { dreamText } = req.body || {};
+    if (!dreamText) return res.status(400).json({ error: "dreamText é obrigatório" });
+    if (typeof dreamText !== "string" || dreamText.length > DREAM_TEXT_MAX_LENGTH) {
+      return res.status(400).json({ error: `dreamText deve ter no máximo ${DREAM_TEXT_MAX_LENGTH} caracteres` });
+    }
+    const reading = await aiProvider.interpretDream({ dreamText });
+    console.log("[api/dream] sucesso");
+    res.json(reading);
+  } catch (err) {
+    console.error("[api/dream] erro:", err.message);
+    res.status(500).json({ error: "falha ao interpretar o sonho" });
+  }
+});
+
+// Web Push — o app Cosmic Guide roda só como web (sem publicação em loja),
+// então notificação de celular só existe através disso (ver lib/webPush.js no
+// app): a chave pública é a mesma pra todo mundo (por definição, é pública),
+// subscribe/unsubscribe guardam/apagam a inscrição real do navegador da
+// pessoa, junto do signo dela (não-sensível) pra personalizar o envio diário.
+const pushLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições — tente novamente em alguns minutos." },
+});
+
+app.get("/api/push/vapid-public-key", (_req, res) => {
+  if (!VAPID_PUBLIC_KEY) return res.status(503).json({ error: "Web Push não configurado no servidor" });
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+app.post("/api/push/subscribe", pushLimiter, (req, res) => {
+  try {
+    const { subscription, sign } = req.body || {};
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ error: "subscription (endpoint + keys) é obrigatório" });
+    }
+    const { p256dh, auth } = subscription.keys;
+    if (!p256dh || !auth) return res.status(400).json({ error: "subscription.keys.p256dh e .auth são obrigatórios" });
+
+    pushRepository.save({
+      endpoint: subscription.endpoint,
+      p256dh,
+      auth,
+      signName: sign && sign.name,
+      signIcon: sign && sign.icon,
+    });
+    console.log("[api/push/subscribe] inscrição salva");
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[api/push/subscribe] erro:", err.message);
+    res.status(500).json({ error: "falha ao salvar inscrição" });
+  }
+});
+
+app.post("/api/push/unsubscribe", pushLimiter, (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: "endpoint é obrigatório" });
+    pushRepository.remove(endpoint);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[api/push/unsubscribe] erro:", err.message);
+    res.status(500).json({ error: "falha ao remover inscrição" });
+  }
+});
+
+// Generoso o bastante pra nunca bloquear reentregas legítimas do Hotmart (raras,
+// um evento por compra/mudança de assinatura), restritivo o bastante pra impedir
+// que alguém martele esse endpoint público não-autenticado.
+const webhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, reason: "muitas requisições" },
+});
+
+app.post("/webhook/hotmart", webhookLimiter, (req, res) => {
   console.log("[webhook] recebido:", JSON.stringify(req.body));
-  const result = processWebhook.execute({ rawBody: req.rawBody, headers: req.headers, payload: req.body });
-  console.log("[webhook] resultado:", JSON.stringify(result));
-  // Sempre responde 200 pro Hotmart não ficar reentregando — o motivo de falha vai só no log/resposta.
-  res.json(result);
+  try {
+    const result = processWebhook.execute({ rawBody: req.rawBody, headers: req.headers, payload: req.body });
+    console.log("[webhook] resultado:", JSON.stringify(result));
+    // Sempre responde 200 pro Hotmart não ficar reentregando — o motivo de falha vai só no log/resposta.
+    res.json(result);
+  } catch (err) {
+    // Sem este try/catch, uma falha inesperada aqui (ex.: escrita no banco) virava
+    // um 500 do Express — o oposto do que o comentário acima promete — fazendo o
+    // Hotmart reentregar o mesmo evento indefinidamente, com a ativação da compra
+    // seguindo sem registro a cada tentativa.
+    console.error("[webhook] erro inesperado:", err.message);
+    res.json({ ok: false, reason: "erro interno ao processar" });
+  }
 });
 
 app.listen(PORT, () => {

@@ -1,7 +1,22 @@
 // Primeira implementação concreta de PaymentProvider — trocável por outra sem
 // tocar em domínio, casos de uso ou rotas HTTP.
 
+const crypto = require("crypto");
 const { PaymentProvider } = require("../domain/PaymentProvider");
+
+// Comparação em tempo constante — evita ataque de timing que vazaria, char a char,
+// quantos caracteres do HOTTOK recebido batem com o segredo configurado.
+function timingSafeStringEqual(a, b) {
+  const bufA = Buffer.from(String(a), "utf8");
+  const bufB = Buffer.from(String(b), "utf8");
+  if (bufA.length !== bufB.length) {
+    // Ainda compara contra um buffer do mesmo tamanho de bufA (nunca bufB) pra não
+    // retornar cedo e vazar informação de tamanho/tempo — sempre false ao final.
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // Mapeia os eventos/estado do Hotmart para o vocabulário interno (pending/active/past_due/canceled/expired).
 function normalizeStatus({ event, subscriptionStatus }) {
@@ -42,7 +57,7 @@ class HotmartPaymentProvider extends PaymentProvider {
 
   verifyWebhookSignature(rawBody, headers) {
     const received = headers["x-hotmart-hottok"] || headers["X-HOTMART-HOTTOK"];
-    return Boolean(received) && received === this.hottok;
+    return Boolean(received) && timingSafeStringEqual(received, this.hottok);
   }
 
   parseWebhookEvent(payload) {
@@ -58,6 +73,9 @@ class HotmartPaymentProvider extends PaymentProvider {
       providerSubscriptionId: subscription?.subscriber?.code || purchase?.transaction || null,
       amountCents: purchase?.price?.value != null ? Math.round(purchase.price.value * 100) : null,
       currency: purchase?.price?.currency_value || null,
+      // Data da próxima cobrança (ISO 8601), confirmada em data.subscription.date_next_charge
+      // na documentação oficial do Hotmart — mesmo objeto de onde já lemos subscription.status.
+      currentPeriodEnd: subscription?.date_next_charge || null,
       rawEvent: event,
     };
   }
