@@ -143,6 +143,48 @@ app.post("/api/coffee", aiLimiter, async (req, res) => {
   }
 });
 
+app.post("/api/moles", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { imageBase64, mediaType } = req.body || {};
+    if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
+    const reading = await aiProvider.analyzeMoles({ imageBase64, mediaType });
+    console.log("[api/moles] sucesso");
+    res.json(reading);
+  } catch (err) {
+    console.error("[api/moles] erro:", err.message);
+    res.status(500).json({ error: "falha ao analisar a imagem" });
+  }
+});
+
+app.post("/api/foot", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { imageBase64, mediaType } = req.body || {};
+    if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
+    const reading = await aiProvider.analyzeFoot({ imageBase64, mediaType });
+    console.log("[api/foot] sucesso");
+    res.json(reading);
+  } catch (err) {
+    console.error("[api/foot] erro:", err.message);
+    res.status(500).json({ error: "falha ao analisar a imagem" });
+  }
+});
+
+app.post("/api/face", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { imageBase64, mediaType } = req.body || {};
+    if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
+    const reading = await aiProvider.analyzeFace({ imageBase64, mediaType });
+    console.log("[api/face] sucesso");
+    res.json(reading);
+  } catch (err) {
+    console.error("[api/face] erro:", err.message);
+    res.status(500).json({ error: "falha ao analisar a imagem" });
+  }
+});
+
 // Mesmo limite do maxLength={2000} do TextInput em DreamScreen.js — mesma
 // lógica do CHAT_MESSAGE_MAX_LENGTH acima.
 const DREAM_TEXT_MAX_LENGTH = 2000;

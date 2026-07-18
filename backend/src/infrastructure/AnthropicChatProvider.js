@@ -5,6 +5,9 @@ const CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || "claude-haiku-4-5";
 const PALM_MODEL = process.env.ANTHROPIC_PALM_MODEL || "claude-haiku-4-5";
 const DREAM_MODEL = process.env.ANTHROPIC_DREAM_MODEL || "claude-haiku-4-5";
 const COFFEE_MODEL = process.env.ANTHROPIC_COFFEE_MODEL || "claude-haiku-4-5";
+const FACE_MODEL = process.env.ANTHROPIC_FACE_MODEL || "claude-haiku-4-5";
+const FOOT_MODEL = process.env.ANTHROPIC_FOOT_MODEL || "claude-haiku-4-5";
+const MOLES_MODEL = process.env.ANTHROPIC_MOLES_MODEL || "claude-haiku-4-5";
 
 const PERSONA_PROMPTS = {
   luna: [
@@ -59,6 +62,70 @@ const COFFEE_OUTPUT_SCHEMA = {
       type: "string",
       description:
         "Corpo da leitura já formatado: interpretação simbólica das formas vistas na borra e a pergunta reflexiva no final, separados por quebras de linha duplas.",
+    },
+  },
+  required: ["title", "body"],
+  additionalProperties: false,
+};
+
+const FOOT_SYSTEM_PROMPT = [
+  "Você é uma IA que integra tradições simbólicas de leitura dos pés (formato dos dedos, arco, proporções) pra fazer leituras simbólicas dentro do app Cosmic Guide.",
+  "Analise a foto do pé enviada e escreva uma reflexão em português do Brasil sobre o que a tradição simbólica associa ao formato observado,",
+  "terminando com uma pergunta reflexiva.",
+  "Deixe claro que é uma leitura simbólica e de entretenimento, nunca um exame podológico ou médico real.",
+].join(" ");
+
+const FOOT_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Título curto da leitura, ex.: 'Passos firmes e determinação'" },
+    body: {
+      type: "string",
+      description:
+        "Corpo da leitura já formatado: interpretação simbólica do formato dos dedos, arco e proporções do pé e a pergunta reflexiva no final, separados por quebras de linha duplas.",
+    },
+  },
+  required: ["title", "body"],
+  additionalProperties: false,
+};
+
+const MOLES_SYSTEM_PROMPT = [
+  "Você é uma IA que integra a moleosofia — tradição antiga de interpretar simbolicamente pintas e sinais de nascença pela posição no corpo — pra fazer leituras dentro do app Cosmic Guide.",
+  "Analise a foto enviada (região do corpo com pintas/sinais visíveis) e escreva uma reflexão em português do Brasil",
+  "sobre o simbolismo tradicional associado às posições observadas, terminando com uma pergunta reflexiva.",
+  "Deixe claro que é uma leitura simbólica/folclórica, nunca uma avaliação dermatológica — e NUNCA analise ou comente",
+  "aspectos de saúde da pele (isso é indicado a um médico, não a esta leitura).",
+].join(" ");
+
+const MOLES_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Título curto da leitura, ex.: 'Marcas de proteção'" },
+    body: {
+      type: "string",
+      description:
+        "Corpo da leitura já formatado: interpretação simbólica das posições das pintas/sinais observadas e a pergunta reflexiva no final, separados por quebras de linha duplas.",
+    },
+  },
+  required: ["title", "body"],
+  additionalProperties: false,
+};
+
+const FACE_SYSTEM_PROMPT = [
+  "Você é uma IA que integra a fisionomia — tradição milenar de leitura de traços do rosto (testa, olhos, nariz, boca, queixo) — pra fazer leituras simbólicas dentro do app Cosmic Guide.",
+  "Analise a foto do rosto enviada e escreva uma reflexão em português do Brasil sobre os traços de personalidade que a tradição associa a cada região do rosto,",
+  "terminando com uma pergunta reflexiva.",
+  "Deixe claro que é uma leitura simbólica baseada na tradição da fisionomia, não uma avaliação médica/estética real.",
+].join(" ");
+
+const FACE_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Título curto da leitura, ex.: 'Traços que revelam força'" },
+    body: {
+      type: "string",
+      description:
+        "Corpo da leitura já formatado: interpretação simbólica dos traços do rosto (testa, olhos, nariz, boca, queixo) e a pergunta reflexiva no final, separados por quebras de linha duplas.",
     },
   },
   required: ["title", "body"],
@@ -173,6 +240,78 @@ class AnthropicChatProvider {
               source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 },
             },
             { type: "text", text: "Analise essa foto da borra de café na xícara e faça a leitura simbólica." },
+          ],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    return JSON.parse(textBlock.text);
+  }
+
+  async analyzeMoles({ imageBase64, mediaType }) {
+    const response = await this.client.messages.create({
+      model: MOLES_MODEL,
+      max_tokens: 600,
+      system: MOLES_SYSTEM_PROMPT,
+      output_config: { format: { type: "json_schema", schema: MOLES_OUTPUT_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 },
+            },
+            { type: "text", text: "Analise essa foto das pintas/sinais e faça a leitura simbólica da moleosofia — não comente nada sobre saúde da pele." },
+          ],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    return JSON.parse(textBlock.text);
+  }
+
+  async analyzeFace({ imageBase64, mediaType }) {
+    const response = await this.client.messages.create({
+      model: FACE_MODEL,
+      max_tokens: 600,
+      system: FACE_SYSTEM_PROMPT,
+      output_config: { format: { type: "json_schema", schema: FACE_OUTPUT_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 },
+            },
+            { type: "text", text: "Analise essa foto do rosto e faça a leitura simbólica de fisionomia." },
+          ],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    return JSON.parse(textBlock.text);
+  }
+
+  async analyzeFoot({ imageBase64, mediaType }) {
+    const response = await this.client.messages.create({
+      model: FOOT_MODEL,
+      max_tokens: 600,
+      system: FOOT_SYSTEM_PROMPT,
+      output_config: { format: { type: "json_schema", schema: FOOT_OUTPUT_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 },
+            },
+            { type: "text", text: "Analise essa foto do pé e faça a leitura simbólica." },
           ],
         },
       ],
