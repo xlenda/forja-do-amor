@@ -41,6 +41,52 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   sign_icon TEXT,
   created_at TEXT NOT NULL
 );
+
+-- Feed social só pra usuários solo (sem parceiro pareado) — Reconectar/Agir
+-- e o resto do conteúdo de casal continuam privados, nunca aparecem aqui.
+-- user_id é o "sub" (UUID) do JWT do Supabase, verificado via JWKS (ver
+-- src/http/socialAuth.js) — nunca confiamos num user_id vindo cru do client.
+CREATE TABLE IF NOT EXISTS social_profiles (
+  user_id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  username TEXT UNIQUE NOT NULL,
+  avatar_emoji TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS social_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  reading_type TEXT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_social_posts_created ON social_posts(created_at);
+
+CREATE TABLE IF NOT EXISTS social_follows (
+  follower_id TEXT NOT NULL,
+  followee_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (follower_id, followee_id)
+);
+
+CREATE TABLE IF NOT EXISTS social_likes (
+  post_id INTEGER NOT NULL,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS social_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  user_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_social_comments_post ON social_comments(post_id);
 `);
 
 module.exports = { db };

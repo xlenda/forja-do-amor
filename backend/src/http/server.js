@@ -6,6 +6,7 @@ const { SubscriptionRepository } = require("../infrastructure/SubscriptionReposi
 const { HotmartPaymentProvider } = require("../infrastructure/HotmartPaymentProvider");
 const { AnthropicChatProvider } = require("../infrastructure/AnthropicChatProvider");
 const { PushSubscriptionRepository } = require("../infrastructure/PushSubscriptionRepository");
+const { socialRouter } = require("./socialRoutes");
 const { InitiateCheckoutUseCase } = require("../application/InitiateCheckoutUseCase");
 const { ProcessWebhookUseCase } = require("../application/ProcessWebhookUseCase");
 const { GetSubscriptionStatusUseCase } = require("../application/GetSubscriptionStatusUseCase");
@@ -205,6 +206,30 @@ app.post("/api/dream", aiLimiter, async (req, res) => {
     res.status(500).json({ error: "falha ao interpretar o sonho" });
   }
 });
+
+const INSIGHT_TRANSCRIPT_MAX_LENGTH = 2000;
+
+app.post("/api/enhance-insight", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { transcript, readingType, readingTitle } = req.body || {};
+    if (!transcript) return res.status(400).json({ error: "transcript é obrigatório" });
+    if (typeof transcript !== "string" || transcript.length > INSIGHT_TRANSCRIPT_MAX_LENGTH) {
+      return res.status(400).json({ error: `transcript deve ter no máximo ${INSIGHT_TRANSCRIPT_MAX_LENGTH} caracteres` });
+    }
+    const result = await aiProvider.enhanceInsight({ transcript, readingType, readingTitle });
+    console.log("[api/enhance-insight] sucesso");
+    res.json(result);
+  } catch (err) {
+    console.error("[api/enhance-insight] erro:", err.message);
+    res.status(500).json({ error: "falha ao organizar o insight" });
+  }
+});
+
+// Feed social só pra usuários solo (sem parceiro pareado — ver isCouple no
+// app); Reconectar/Agir e o resto do conteúdo de casal nunca passam por aqui.
+// Cada rota exige um JWT válido do Supabase (ver socialAuth.js).
+app.use("/api/social", socialRouter);
 
 // Web Push — o app Cosmic Guide roda só como web (sem publicação em loja),
 // então notificação de celular só existe através disso (ver lib/webPush.js no

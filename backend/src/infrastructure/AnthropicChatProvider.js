@@ -177,6 +177,24 @@ const WEEKLY_SUMMARY_OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+const ENHANCE_INSIGHT_MODEL = process.env.ANTHROPIC_ENHANCE_INSIGHT_MODEL || "claude-haiku-4-5";
+
+const ENHANCE_INSIGHT_SYSTEM_PROMPT = [
+  "Você ajuda a organizar, em português do Brasil, um insight que a própria pessoa gravou por voz logo após uma leitura simbólica (tarô, palma, café, sonho, etc.) dentro do app Cosmic Guide.",
+  "Nunca invente uma ideia que a pessoa não disse — só organize, clareie e dê fluidez ao que já foi falado, mantendo a primeira pessoa e o sentido original.",
+  "Se a fala estiver truncada, repetitiva ou com hesitações (comum em transcrição de voz), limpe isso sem adicionar conteúdo novo.",
+  "Tom caloroso e reflexivo, 2 a 5 frases.",
+].join(" ");
+
+const ENHANCE_INSIGHT_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    enhanced: { type: "string", description: "Versão organizada do insight, mantendo a primeira pessoa e o sentido original." },
+  },
+  required: ["enhanced"],
+  additionalProperties: false,
+};
+
 class AnthropicChatProvider {
   constructor({ apiKey }) {
     // Require adiado pra dentro do construtor: só é resolvido quando ANTHROPIC_API_KEY
@@ -331,6 +349,28 @@ class AnthropicChatProvider {
         {
           role: "user",
           content: [{ type: "text", text: `Sonho relatado: ${dreamText}\n\nFaça a interpretação simbólica desse sonho.` }],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    return JSON.parse(textBlock.text);
+  }
+
+  // transcript: texto bruto que a pessoa falou (Web Speech API, sem edição).
+  // readingType/readingTitle dão contexto pra IA, mas nunca entram na
+  // resposta como conteúdo novo — só ajudam a interpretar o que foi dito.
+  async enhanceInsight({ transcript, readingType, readingTitle }) {
+    const contexto = readingTitle ? ` (logo após a leitura "${readingTitle}", tipo ${readingType})` : "";
+    const response = await this.client.messages.create({
+      model: ENHANCE_INSIGHT_MODEL,
+      max_tokens: 300,
+      system: ENHANCE_INSIGHT_SYSTEM_PROMPT,
+      output_config: { format: { type: "json_schema", schema: ENHANCE_INSIGHT_OUTPUT_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `Insight gravado por voz${contexto}: "${transcript}"\n\nOrganize esse insight.` }],
         },
       ],
     });
