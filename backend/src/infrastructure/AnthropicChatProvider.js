@@ -86,6 +86,30 @@ const DREAM_OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+const WEEKLY_SUMMARY_MODEL = process.env.ANTHROPIC_COFFEE_WEEKLY_MODEL || "claude-haiku-4-5";
+
+const WEEKLY_SUMMARY_SYSTEM_PROMPT = [
+  "Você é uma IA que integra a tasseografia — tradição milenar de leitura da borra de café — dentro do app Cosmic Guide.",
+  "Vai receber as leituras reais que a pessoa recebeu ao longo dos últimos dias (título e corpo de cada uma).",
+  "Escreva em português do Brasil uma CONCLUSÃO DA SEMANA: encontre temas ou fios condutores que se repetem entre essas leituras",
+  "e escreva uma síntese reflexiva, terminando com uma pergunta que convide a pessoa a olhar pra semana como um todo.",
+  "Nunca invente uma leitura nova — baseie-se só no que já foi lido nos dias anteriores.",
+  "Deixe claro que é uma síntese simbólica da tasseografia, sem cravar eventos específicos ou garantir resultados.",
+].join(" ");
+
+const WEEKLY_SUMMARY_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Título curto da conclusão da semana, ex.: 'Uma semana de recomeços'" },
+    body: {
+      type: "string",
+      description: "Corpo da conclusão já formatado: síntese dos temas recorrentes e a pergunta reflexiva no final.",
+    },
+  },
+  required: ["title", "body"],
+  additionalProperties: false,
+};
+
 class AnthropicChatProvider {
   constructor({ apiKey }) {
     // Require adiado pra dentro do construtor: só é resolvido quando ANTHROPIC_API_KEY
@@ -168,6 +192,31 @@ class AnthropicChatProvider {
         {
           role: "user",
           content: [{ type: "text", text: `Sonho relatado: ${dreamText}\n\nFaça a interpretação simbólica desse sonho.` }],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    return JSON.parse(textBlock.text);
+  }
+
+  // readings: array de { title, body } — até 7 leituras reais de café já
+  // recebidas pela pessoa (nunca fabricadas aqui, vêm do histórico real
+  // salvo no app). Sintetiza uma conclusão da semana a partir delas.
+  async summarizeCoffeeWeek({ readings }) {
+    const listaTexto = readings
+      .map((r, i) => `Leitura ${i + 1} — "${r.title}": ${r.body}`)
+      .join("\n\n");
+
+    const response = await this.client.messages.create({
+      model: WEEKLY_SUMMARY_MODEL,
+      max_tokens: 600,
+      system: WEEKLY_SUMMARY_SYSTEM_PROMPT,
+      output_config: { format: { type: "json_schema", schema: WEEKLY_SUMMARY_OUTPUT_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `Leituras da semana:\n\n${listaTexto}\n\nEscreva a conclusão da semana.` }],
         },
       ],
     });

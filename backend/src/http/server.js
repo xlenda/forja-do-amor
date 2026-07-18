@@ -218,6 +218,30 @@ app.post("/api/push/unsubscribe", pushLimiter, (req, res) => {
   }
 });
 
+app.post("/api/coffee-weekly-summary", aiLimiter, async (req, res) => {
+  if (!aiProvider) return res.status(503).json({ error: "IA não configurada no servidor" });
+  try {
+    const { readings } = req.body || {};
+    if (!Array.isArray(readings) || readings.length === 0) {
+      return res.status(400).json({ error: "readings (array não vazio) é obrigatório" });
+    }
+    if (readings.length > 7) {
+      return res.status(400).json({ error: "readings aceita no máximo 7 leituras" });
+    }
+    for (const r of readings) {
+      if (!r || typeof r.title !== "string" || typeof r.body !== "string") {
+        return res.status(400).json({ error: "cada leitura precisa de title e body em string" });
+      }
+    }
+    const summary = await aiProvider.summarizeCoffeeWeek({ readings });
+    console.log("[api/coffee-weekly-summary] sucesso");
+    res.json(summary);
+  } catch (err) {
+    console.error("[api/coffee-weekly-summary] erro:", err.message);
+    res.status(500).json({ error: "falha ao gerar a conclusão da semana" });
+  }
+});
+
 // Generoso o bastante pra nunca bloquear reentregas legítimas do Hotmart (raras,
 // um evento por compra/mudança de assinatura), restritivo o bastante pra impedir
 // que alguém martele esse endpoint público não-autenticado.
