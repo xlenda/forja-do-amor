@@ -223,14 +223,22 @@ function getMoonPhase(date) {
 }
 
 const RULER_BY_WEEKDAY = [
-  { planet: "Sol", emoji: "☀️", theme: "vitalidade e propósito pessoal" }, // domingo
-  { planet: "Lua", emoji: "🌙", theme: "emoções, família e intuição" }, // segunda
-  { planet: "Marte", emoji: "🔥", theme: "ação, coragem e decisões diretas" }, // terça
-  { planet: "Mercúrio", emoji: "💬", theme: "comunicação, trabalho e negócios" }, // quarta
-  { planet: "Júpiter", emoji: "🍀", theme: "expansão, sorte e oportunidades" }, // quinta
-  { planet: "Vênus", emoji: "💛", theme: "amor, beleza e dinheiro" }, // sexta
-  { planet: "Saturno", emoji: "🪐", theme: "disciplina e responsabilidade" }, // sábado
+  { planet: "Sol", emoji: "☀️", theme: "brilhar do seu próprio jeito e lembrar do seu valor" }, // domingo
+  { planet: "Lua", emoji: "🌙", theme: "cuidar de quem você ama — incluindo você mesma(o)" }, // segunda
+  { planet: "Marte", emoji: "🔥", theme: "agir com coragem — todo primeiro passo já é motivo de orgulho" }, // terça
+  { planet: "Mercúrio", emoji: "💬", theme: "uma boa conversa que pode destravar o que você precisa" }, // quarta
+  { planet: "Júpiter", emoji: "🍀", theme: "ficar de olho nas portas que estão se abrindo pra você" }, // quinta
+  { planet: "Vênus", emoji: "💛", theme: "atrair abundância — amor, beleza e prosperidade por perto" }, // sexta
+  { planet: "Saturno", emoji: "🪐", theme: "dar um passo firme de cada vez — a disciplina de hoje é o presente de amanhã" }, // sábado
 ];
+
+const ASPECT_TONE = {
+  Conjunção: "somando forças a seu favor",
+  Sextil: "abrindo uma oportunidade leve de aproveitar",
+  Trígono: "fluindo fácil, quase sem esforço",
+  Quadratura: "pedindo um ajuste — a tensão de hoje é o convite pra crescer",
+  Oposição: "pedindo equilíbrio entre dois lados que importam pra você",
+};
 
 function rulerOfDay(date) {
   return RULER_BY_WEEKDAY[date.getDay()];
@@ -265,16 +273,16 @@ function getThoughtForDate(date, personalSign) {
     personalSign && personalSign.name ? `${personalSign.icon ? personalSign.icon + " " : ""}${personalSign.name}, ` : "";
 
   const ruler = rulerOfDay(date);
-  const rulerPart = ` Hoje é dia de ${ruler.planet} ${ruler.emoji} — favorece ${ruler.theme}.`;
+  const rulerPart = ` Hoje é dia de ${ruler.planet} ${ruler.emoji} — deixa espaço pra ${ruler.theme}.`;
 
   const retro = isMercuryRetrograde(dateStr);
   const retroPart = retro
-    ? " Mercúrio está retrógrado ↩️ — vale cuidado redobrado com comunicação, contratos e viagens."
+    ? " Mercúrio está em movimento retrógrado ↩️ — ótimo momento pra rever, repensar e ajustar com calma, sem pressa de decidir tudo agora."
     : "";
 
   const aspect = strongestAspect(dateStr);
   const aspectPart = aspect
-    ? ` O aspecto mais forte de hoje é ${aspect.planetA} em ${aspect.aspectType.toLowerCase()} com ${aspect.planetB}.`
+    ? ` ${aspect.planetA} e ${aspect.planetB} estão em ${aspect.aspectType.toLowerCase()} hoje — ${ASPECT_TONE[aspect.aspectType]}.`
     : "";
 
   return `${greeting}${phase.emoji} ${phase.name}. ${signPart}${phase.reflexao}${rulerPart}${retroPart}${aspectPart}`;
