@@ -223,21 +223,49 @@ function getMoonPhase(date) {
 }
 
 const RULER_BY_WEEKDAY = [
-  { planet: "Sol", emoji: "☀️", theme: "brilhar do seu próprio jeito e lembrar do seu valor" }, // domingo
-  { planet: "Lua", emoji: "🌙", theme: "cuidar de quem você ama — incluindo você mesma(o)" }, // segunda
-  { planet: "Marte", emoji: "🔥", theme: "agir com coragem — todo primeiro passo já é motivo de orgulho" }, // terça
-  { planet: "Mercúrio", emoji: "💬", theme: "uma boa conversa que pode destravar o que você precisa" }, // quarta
-  { planet: "Júpiter", emoji: "🍀", theme: "ficar de olho nas portas que estão se abrindo pra você" }, // quinta
-  { planet: "Vênus", emoji: "💛", theme: "atrair abundância — amor, beleza e prosperidade por perto" }, // sexta
-  { planet: "Saturno", emoji: "🪐", theme: "dar um passo firme de cada vez — a disciplina de hoje é o presente de amanhã" }, // sábado
+  {
+    planet: "Sol", emoji: "☀️",
+    theme: "brilhar do seu próprio jeito, sem precisar se explicar pra ninguém",
+    next: "Amanhã a Lua chega trazendo espaço pra sentir mais fundo — guarda um lugar pra isso.",
+  }, // domingo
+  {
+    planet: "Lua", emoji: "🌙",
+    theme: "sentir com profundidade e cuidar de quem você ama — inclusive você mesma(o)",
+    next: "Amanhã Marte empresta coragem pro que você sentiu hoje virar ação.",
+  }, // segunda
+  {
+    planet: "Marte", emoji: "🔥",
+    theme: "agir mesmo com medo — coragem de verdade é dar o passo apesar dele",
+    next: "Amanhã Mercúrio ajuda a colocar em palavras o que você começou a mover hoje.",
+  }, // terça
+  {
+    planet: "Mercúrio", emoji: "💬",
+    theme: "dizer o que precisa ser dito, mesmo que a voz saia tremendo um pouco",
+    next: "Amanhã Júpiter abre horizontes a partir do que foi conversado hoje.",
+  }, // quarta
+  {
+    planet: "Júpiter", emoji: "🍀",
+    theme: "acreditar que ainda dá tempo pras coisas boas acontecerem",
+    next: "Amanhã Vênus convida pro amor e pra abundância — aproveita o que se abriu hoje.",
+  }, // quinta
+  {
+    planet: "Vênus", emoji: "💛",
+    theme: "se permitir receber amor, beleza e abundância sem culpa",
+    next: "Amanhã Saturno ajuda a dar forma e raiz a tudo isso.",
+  }, // sexta
+  {
+    planet: "Saturno", emoji: "🪐",
+    theme: "encarar o que pesa com maturidade — nem tudo precisa ser leve pra valer a pena",
+    next: "Amanhã o ciclo recomeça com o Sol — um capítulo novo da sua semana.",
+  }, // sábado
 ];
 
 const ASPECT_TONE = {
   Conjunção: "somando forças a seu favor",
   Sextil: "abrindo uma oportunidade leve de aproveitar",
   Trígono: "fluindo fácil, quase sem esforço",
-  Quadratura: "pedindo um ajuste — a tensão de hoje é o convite pra crescer",
-  Oposição: "pedindo equilíbrio entre dois lados que importam pra você",
+  Quadratura: "cobrando uma decisão difícil — dói, mas é o tipo de dor que faz crescer",
+  Oposição: "puxando pra dois lados — tudo bem sentir o peso disso antes de achar o equilíbrio",
 };
 
 function rulerOfDay(date) {
@@ -273,11 +301,11 @@ function getThoughtForDate(date, personalSign) {
     personalSign && personalSign.name ? `${personalSign.icon ? personalSign.icon + " " : ""}${personalSign.name}, ` : "";
 
   const ruler = rulerOfDay(date);
-  const rulerPart = ` Hoje é dia de ${ruler.planet} ${ruler.emoji} — deixa espaço pra ${ruler.theme}.`;
+  const rulerPart = ` Hoje é dia de ${ruler.planet} ${ruler.emoji} — deixa espaço pra ${ruler.theme}. ${ruler.next}`;
 
   const retro = isMercuryRetrograde(dateStr);
   const retroPart = retro
-    ? " Mercúrio está em movimento retrógrado ↩️ — ótimo momento pra rever, repensar e ajustar com calma, sem pressa de decidir tudo agora."
+    ? " Se hoje parecer que nada anda no ritmo certo, Mercúrio retrógrado ↩️ explica isso — não é impressão sua. É um convite pra rever e ajustar com calma, sem pressa de decidir tudo agora."
     : "";
 
   const aspect = strongestAspect(dateStr);
