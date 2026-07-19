@@ -6,7 +6,14 @@
 // assinatura só com a chave pública, via JWKS, com cache automático do jose.
 const { createRemoteJWKSet, jwtVerify } = require("jose");
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://eblbohgizzishfgtcnmc.supabase.co";
+// ATENÇÃO: precisa ser o mesmo projeto usado pelo app em lib/supabaseClient.js
+// (kroadufkgvymsfzulfzn) — um valor errado aqui faz TODO token real falhar na
+// verificação (assinatura nunca bate com o JWKS de outro projeto), derrubando
+// o feed social inteiro com "token inválido" sem nenhum erro óbvio no client.
+// Isso já aconteceu de verdade (auditoria de segurança, 18/07/2026): o
+// fallback apontava pro projeto errado (Ziggur) e a env var nunca tinha sido
+// configurada no servidor — 100% das chamadas ao feed social falhavam.
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://kroadufkgvymsfzulfzn.supabase.co";
 const JWKS = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
 
 // Middleware Express: exige um token válido, popula req.userId com o "sub"

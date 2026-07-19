@@ -34,6 +34,15 @@ function profileOrNull(userId) {
   return db.prepare("SELECT user_id, display_name, username, avatar_emoji FROM social_profiles WHERE user_id = ?").get(userId) || null;
 }
 
+// Mesma regra de visibilidade usada em GET /feed (dono ou quem segue) —
+// achado real de auditoria de segurança (18/07/2026): GET /users/:userId
+// devolvia os posts de qualquer pessoa pra qualquer usuário autenticado,
+// mesmo sem seguir, inconsistente com o /feed que já filtrava por follow.
+function canViewPosts(viewerId, authorId) {
+  if (viewerId === authorId) return true;
+  return !!db.prepare("SELECT 1 FROM social_follows WHERE follower_id = ? AND followee_id = ?").get(viewerId, authorId);
+}
+
 // Toda rota abaixo assume req.userId já verificado por requireAuth.
 
 router.get("/profile/me", (req, res) => {
@@ -68,7 +77,10 @@ router.put("/profile", writeLimiter, (req, res) => {
 // Busca simples por username (prefixo) — não existe diretório público de
 // usuários ainda, então é assim que uma pessoa acha outra pra seguir (ex.:
 // combinar o @username por fora, tipo Ziggur "Compartilhar perfil").
-router.get("/search", (req, res) => {
+// writeLimiter aqui não é sobre "escrita" — é a única rota de leitura em
+// massa do router (permite varrer o diretório inteiro de usuários por
+// prefixo) e por isso precisa de limite, achado real de auditoria (18/07/2026).
+router.get("/search", writeLimiter, (req, res) => {
   const q = String(req.query.username || "").trim().toLowerCase();
   if (!q) return res.json({ profiles: [] });
   const rows = db
@@ -85,9 +97,13 @@ router.get("/users/:userId", (req, res) => {
   const isFollowing = !!db
     .prepare("SELECT 1 FROM social_follows WHERE follower_id = ? AND followee_id = ?")
     .get(req.userId, req.params.userId);
-  const posts = db
-    .prepare("SELECT id, reading_type, title, body, created_at FROM social_posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 30")
-    .all(req.params.userId);
+  // Contagens de seguidores/perfil continuam públicas (igual qualquer rede
+  // social) — só o CONTEÚDO dos posts é restrito a dono ou quem segue.
+  const posts = canViewPosts(req.userId, req.params.userId)
+    ? db
+        .prepare("SELECT id, reading_type, title, body, created_at FROM social_posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 30")
+        .all(req.params.userId)
+    : [];
   res.json({ profile, followers, following, isFollowing: req.userId === req.params.userId ? null : isFollowing, posts });
 });
 
@@ -172,6 +188,9 @@ router.delete("/posts/:id/like", writeLimiter, (req, res) => {
 });
 
 router.get("/posts/:id/comments", (req, res) => {
+  const post = db.prepare("SELECT user_id FROM social_posts WHERE id = ?").get(req.params.id);
+  if (!post) return res.status(404).json({ error: "post não encontrado" });
+  if (!canViewPosts(req.userId, post.user_id)) return res.status(403).json({ error: "sem acesso a este post" });
   const rows = db
     .prepare(
       `SELECT c.id, c.user_id, c.body, c.created_at, sp.display_name, sp.username, sp.avatar_emoji
