@@ -30,6 +30,18 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+// Remove caracteres de controle Unicode invisíveis (bidi override tipo
+// U+202E, zero-width tipo U+200B) de texto gerado por usuário — sem isso,
+// alguém podia inverter visualmente o próprio nome/post ou esconder parte de
+// um link, sem que fosse XSS (é texto puro, só spoofing visual). Achado real
+// de auditoria (18/07/2026).
+function stripControlChars(text) {
+  // Zero-width space/joiners (U+200B-U+200F), embutir/override de
+  // direcao de texto (U+202A-U+202E, o truque de spoofing bidi), joiner
+  // de palavra/operadores invisiveis (U+2060-U+2064) e BOM (U+FEFF).
+  return text.replace(/[​-‏‪-‮⁠-⁤﻿]/g, "");
+}
+
 function profileOrNull(userId) {
   return db.prepare("SELECT user_id, display_name, username, avatar_emoji FROM social_profiles WHERE user_id = ?").get(userId) || null;
 }
@@ -61,15 +73,16 @@ router.put("/profile", writeLimiter, (req, res) => {
   const taken = db.prepare("SELECT user_id FROM social_profiles WHERE username = ? AND user_id != ?").get(cleanUsername, req.userId);
   if (taken) return res.status(409).json({ error: "username já está em uso" });
 
+  const cleanDisplayName = stripControlChars(displayName.trim()).slice(0, 60);
   const existing = profileOrNull(req.userId);
   const ts = nowIso();
   if (existing) {
     db.prepare("UPDATE social_profiles SET display_name = ?, username = ?, avatar_emoji = ?, updated_at = ? WHERE user_id = ?")
-      .run(displayName.trim().slice(0, 60), cleanUsername, avatarEmoji || null, ts, req.userId);
+      .run(cleanDisplayName, cleanUsername, avatarEmoji || null, ts, req.userId);
   } else {
     db.prepare(
       "INSERT INTO social_profiles (user_id, display_name, username, avatar_emoji, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(req.userId, displayName.trim().slice(0, 60), cleanUsername, avatarEmoji || null, ts, ts);
+    ).run(req.userId, cleanDisplayName, cleanUsername, avatarEmoji || null, ts, ts);
   }
   res.json({ profile: profileOrNull(req.userId) });
 });
@@ -83,8 +96,14 @@ router.put("/profile", writeLimiter, (req, res) => {
 router.get("/search", writeLimiter, (req, res) => {
   const q = String(req.query.username || "").trim().toLowerCase();
   if (!q) return res.json({ profiles: [] });
+  // "%" e "_" são metacaracteres do LIKE mesmo dentro de parâmetro bindado —
+  // achado real de auditoria (18/07/2026): username=%25 virava LIKE '%%',
+  // devolvendo o diretório inteiro em vez de filtrar por prefixo. Como
+  // username só pode ter [a-z0-9_] (USERNAME_RE), qualquer caractere fora
+  // disso (inclusive "%") não pode corresponder a um username real mesmo.
+  if (!/^[a-z0-9_]{1,20}$/.test(q)) return res.json({ profiles: [] });
   const rows = db
-    .prepare("SELECT user_id, display_name, username, avatar_emoji FROM social_profiles WHERE username LIKE ? ORDER BY username LIMIT 20")
+    .prepare("SELECT user_id, display_name, username, avatar_emoji FROM social_profiles WHERE username LIKE ? ESCAPE '\\' ORDER BY username LIMIT 20")
     .all(`${q}%`);
   res.json({ profiles: rows });
 });
@@ -127,8 +146,15 @@ router.delete("/follow/:userId", writeLimiter, (req, res) => {
 // `before` (id de post) pagina pro passado — evita ORDER BY OFFSET caro à
 // medida que o feed cresce.
 router.get("/feed", (req, res) => {
-  const before = Number.parseInt(req.query.before, 10) || Number.MAX_SAFE_INTEGER;
-  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 20, 50);
+  // `|| valorPadrão` não pega valor negativo (ex.: -1 é truthy em JS) — e o
+  // SQLite trata LIMIT negativo como "sem limite nenhum", então
+  // GET /feed?limit=-1 devolvia TODOS os posts visíveis, ignorando o teto de
+  // 50. Achado real de auditoria (18/07/2026).
+  let before = Number.parseInt(req.query.before, 10);
+  if (!Number.isFinite(before) || before < 1) before = Number.MAX_SAFE_INTEGER;
+  let limit = Number.parseInt(req.query.limit, 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = 20;
+  limit = Math.min(limit, 50);
 
   const rows = db
     .prepare(
@@ -160,7 +186,7 @@ router.post("/posts", writeLimiter, (req, res) => {
   }
   const info = db
     .prepare("INSERT INTO social_posts (user_id, reading_type, title, body, created_at) VALUES (?, ?, ?, ?, ?)")
-    .run(req.userId, readingType || null, title, body, nowIso());
+    .run(req.userId, readingType || null, stripControlChars(title), stripControlChars(body), nowIso());
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
@@ -211,7 +237,7 @@ router.post("/posts/:id/comments", writeLimiter, (req, res) => {
   if (body.length > COMMENT_MAX) return res.status(400).json({ error: `body deve ter no máximo ${COMMENT_MAX} caracteres` });
   const info = db
     .prepare("INSERT INTO social_comments (post_id, user_id, body, created_at) VALUES (?, ?, ?, ?)")
-    .run(req.params.id, req.userId, body.trim(), nowIso());
+    .run(req.params.id, req.userId, stripControlChars(body.trim()), nowIso());
   res.status(201).json({ id: info.lastInsertRowid });
 });
 

@@ -3,11 +3,19 @@
 
 const STATUSES = ["pending", "active", "past_due", "canceled", "expired"];
 
+// "expired" precisa ser alcançável a partir de "active"/"pending"/"canceled"
+// porque é para lá que HotmartPaymentProvider mapeia PURCHASE_REFUNDED e
+// PURCHASE_CHARGEBACK (ver mapStatus) — sem essas transições, um reembolso
+// ou chargeback chegando pra uma assinatura "active" (o caso mais comum)
+// lançava "Transição inválida" dentro de transitionTo(), e
+// ProcessWebhookUseCase.execute() capturava isso e devolvia {ok:true,
+// ignored:true} pro Hotmart — silenciosamente, sem nunca revogar o acesso do
+// cliente estornado. Achado real de auditoria de segurança (18/07/2026).
 const TRANSITIONS = {
-  pending: ["active", "canceled"],
-  active: ["past_due", "canceled"],
+  pending: ["active", "canceled", "expired"],
+  active: ["past_due", "canceled", "expired"],
   past_due: ["active", "expired", "canceled"],
-  canceled: ["active"],
+  canceled: ["active", "expired"],
   expired: ["active"],
 };
 

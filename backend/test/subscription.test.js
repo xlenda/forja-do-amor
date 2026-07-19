@@ -14,10 +14,25 @@ test("pending pode ir para active ou canceled", () => {
   assert.equal(canTransition("pending", "past_due"), false);
 });
 
-test("active pode ir para past_due ou canceled, nunca direto pra expired", () => {
+test("active pode ir para past_due, canceled ou expired", () => {
   assert.equal(canTransition("active", "past_due"), true);
   assert.equal(canTransition("active", "canceled"), true);
-  assert.equal(canTransition("active", "expired"), false);
+  assert.equal(canTransition("active", "expired"), true);
+});
+
+// Bug real corrigido nesta sessão (auditoria de segurança, 18/07/2026):
+// HotmartPaymentProvider mapeia PURCHASE_REFUNDED/PURCHASE_CHARGEBACK direto
+// pra "expired", e o caso mais comum é isso chegar com a assinatura ainda
+// "active". Antes, active->expired não existia no mapa de transições:
+// transitionTo() lançava "Transição inválida", ProcessWebhookUseCase
+// capturava e devolvia {ok:true, ignored:true} pro Hotmart — o reembolso era
+// silenciosamente descartado e o cliente mantinha acesso pago pra sempre.
+test("reembolso/chargeback revoga acesso mesmo vindo de active (bug real corrigido)", () => {
+  const sub = makeSub("active");
+  assert.equal(sub.hasAccess(), true);
+  sub.transitionTo("expired");
+  assert.equal(sub.status, "expired");
+  assert.equal(sub.hasAccess(), false);
 });
 
 test("past_due é a janela de dunning: pode voltar a active, expirar ou cancelar", () => {
