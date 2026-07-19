@@ -68,6 +68,10 @@ class HotmartPaymentProvider extends PaymentProvider {
     const status = normalizeStatus({ event, subscriptionStatus: subscription?.status });
 
     return {
+      // UUID único da notificação (confirmado em exemplo real da doc oficial
+      // do Hotmart — todo tipo de evento manda esse envelope). Usado pra
+      // dedupe de reentrega — null se um payload antigo/atípico não tiver.
+      eventId: payload?.id || null,
       correlationCode,
       status,
       providerSubscriptionId: subscription?.subscriber?.code || purchase?.transaction || null,

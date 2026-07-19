@@ -33,6 +33,15 @@ CREATE TABLE IF NOT EXISTS subscription_events (
   created_at TEXT NOT NULL
 );
 
+-- Dedupe de reentrega de webhook (Hotmart pode reenviar a mesma notificação
+-- mais de uma vez) — sem isso, uma reentrega fora de ordem podia, em tese,
+-- reaplicar uma transição já processada (ex.: reativar algo já cancelado
+-- manualmente depois). event_id é o "id" (UUID) do envelope do webhook.
+CREATE TABLE IF NOT EXISTS webhook_events_processed (
+  event_id TEXT PRIMARY KEY,
+  processed_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   endpoint TEXT PRIMARY KEY,
   p256dh TEXT NOT NULL,

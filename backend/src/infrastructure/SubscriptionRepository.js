@@ -69,6 +69,18 @@ class SubscriptionRepository {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(correlationCode, fromStatus || null, toStatus || null, rawEvent || null, JSON.stringify(rawPayload || null), new Date().toISOString());
   }
+
+  // Dedupe de reentrega de webhook — Hotmart pode reenviar a mesma
+  // notificação mais de uma vez (achado real de auditoria, 18/07/2026).
+  wasEventProcessed(eventId) {
+    if (!eventId) return false; // sem id no payload, não dá pra deduplicar — segue o fluxo normal
+    return !!db.prepare("SELECT 1 FROM webhook_events_processed WHERE event_id = ?").get(eventId);
+  }
+
+  markEventProcessed(eventId) {
+    if (!eventId) return;
+    db.prepare("INSERT OR IGNORE INTO webhook_events_processed (event_id, processed_at) VALUES (?, ?)").run(eventId, new Date().toISOString());
+  }
 }
 
 module.exports = { SubscriptionRepository };

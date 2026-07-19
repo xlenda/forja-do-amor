@@ -90,3 +90,15 @@ test("parseWebhookEvent: extrai correlationCode, valor em centavos e currentPeri
   assert.equal(result.currentPeriodEnd, "2026-08-06");
   assert.equal(result.providerSubscriptionId, "SUB1");
 });
+
+test("parseWebhookEvent: extrai eventId do envelope (id de notificação, pra dedupe de reentrega)", () => {
+  const provider = makeProvider();
+  const result = provider.parseWebhookEvent({ id: "0d7aa966-b887-4617-8c56-9e865bfc8ce4", event: "PURCHASE_APPROVED", data: {} });
+  assert.equal(result.eventId, "0d7aa966-b887-4617-8c56-9e865bfc8ce4");
+});
+
+test("parseWebhookEvent: sem id no payload, eventId vira null (nunca fabrica um id)", () => {
+  const provider = makeProvider();
+  const result = provider.parseWebhookEvent({ event: "PURCHASE_APPROVED", data: {} });
+  assert.equal(result.eventId, null);
+});

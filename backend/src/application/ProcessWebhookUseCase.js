@@ -22,6 +22,21 @@ class ProcessWebhookUseCase {
     }
 
     const event = this.paymentProvider.parseWebhookEvent(payload);
+
+    // Dedupe de reentrega (achado real de auditoria, 18/07/2026): sem isso,
+    // um reenvio fora de ordem do Hotmart podia reaplicar uma transição já
+    // processada (ex.: reativar algo que já tinha sido cancelado depois).
+    if (this.repository.wasEventProcessed(event.eventId)) {
+      this.repository.logEvent({
+        correlationCode: event.correlationCode || "(sem correlationCode)",
+        fromStatus: null,
+        toStatus: null,
+        rawEvent: `IGNORADO(evento duplicado, id=${event.eventId}): ${event.rawEvent}`,
+        rawPayload: payload,
+      });
+      return { ok: true, duplicate: true };
+    }
+
     if (!event.correlationCode) {
       this.repository.logEvent({
         correlationCode: "(sem correlationCode)",
@@ -75,6 +90,10 @@ class ProcessWebhookUseCase {
       rawEvent: event.rawEvent,
       rawPayload: payload,
     });
+    // Só marca como processado DEPOIS que a transição de estado real já foi
+    // salva — se uma reentrega chegar entre o save() e aqui (nunca acontece
+    // de fato, é síncrono, mas por clareza), a reentrega ainda seria pega.
+    this.repository.markEventProcessed(event.eventId);
 
     return { ok: true, status: subscription.status };
   }
