@@ -7,6 +7,7 @@ const { HotmartPaymentProvider } = require("../infrastructure/HotmartPaymentProv
 const { AnthropicChatProvider } = require("../infrastructure/AnthropicChatProvider");
 const { PushSubscriptionRepository } = require("../infrastructure/PushSubscriptionRepository");
 const { socialRouter } = require("./socialRoutes");
+const { compressImage } = require("../infrastructure/imageProcessing");
 const { InitiateCheckoutUseCase } = require("../application/InitiateCheckoutUseCase");
 const { ProcessWebhookUseCase } = require("../application/ProcessWebhookUseCase");
 const { GetSubscriptionStatusUseCase } = require("../application/GetSubscriptionStatusUseCase");
@@ -121,7 +122,8 @@ app.post("/api/palm", aiLimiter, async (req, res) => {
   try {
     const { imageBase64, mediaType } = req.body || {};
     if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
-    const reading = await aiProvider.analyzePalm({ imageBase64, mediaType });
+    const compressed = await compressImage(imageBase64, mediaType);
+    const reading = await aiProvider.analyzePalm(compressed);
     console.log("[api/palm] sucesso");
     res.json(reading);
   } catch (err) {
@@ -135,7 +137,8 @@ app.post("/api/coffee", aiLimiter, async (req, res) => {
   try {
     const { imageBase64, mediaType } = req.body || {};
     if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
-    const reading = await aiProvider.analyzeCoffee({ imageBase64, mediaType });
+    const compressed = await compressImage(imageBase64, mediaType);
+    const reading = await aiProvider.analyzeCoffee(compressed);
     console.log("[api/coffee] sucesso");
     res.json(reading);
   } catch (err) {
@@ -149,7 +152,8 @@ app.post("/api/moles", aiLimiter, async (req, res) => {
   try {
     const { imageBase64, mediaType } = req.body || {};
     if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
-    const reading = await aiProvider.analyzeMoles({ imageBase64, mediaType });
+    const compressed = await compressImage(imageBase64, mediaType);
+    const reading = await aiProvider.analyzeMoles(compressed);
     console.log("[api/moles] sucesso");
     res.json(reading);
   } catch (err) {
@@ -163,7 +167,8 @@ app.post("/api/foot", aiLimiter, async (req, res) => {
   try {
     const { imageBase64, mediaType } = req.body || {};
     if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
-    const reading = await aiProvider.analyzeFoot({ imageBase64, mediaType });
+    const compressed = await compressImage(imageBase64, mediaType);
+    const reading = await aiProvider.analyzeFoot(compressed);
     console.log("[api/foot] sucesso");
     res.json(reading);
   } catch (err) {
@@ -177,7 +182,8 @@ app.post("/api/face", aiLimiter, async (req, res) => {
   try {
     const { imageBase64, mediaType } = req.body || {};
     if (!imageBase64) return res.status(400).json({ error: "imageBase64 é obrigatório" });
-    const reading = await aiProvider.analyzeFace({ imageBase64, mediaType });
+    const compressed = await compressImage(imageBase64, mediaType);
+    const reading = await aiProvider.analyzeFace(compressed);
     console.log("[api/face] sucesso");
     res.json(reading);
   } catch (err) {
