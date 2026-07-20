@@ -7,6 +7,7 @@ const { HotmartPaymentProvider } = require("../infrastructure/HotmartPaymentProv
 const { AnthropicChatProvider } = require("../infrastructure/AnthropicChatProvider");
 const { PushSubscriptionRepository } = require("../infrastructure/PushSubscriptionRepository");
 const { socialRouter } = require("./socialRoutes");
+const { buildAdminRouter } = require("./adminRoutes");
 const { compressImage } = require("../infrastructure/imageProcessing");
 const { InitiateCheckoutUseCase } = require("../application/InitiateCheckoutUseCase");
 const { ProcessWebhookUseCase } = require("../application/ProcessWebhookUseCase");
@@ -30,6 +31,9 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "";
+// Sem essa var configurada, /api/admin/* responde 503 em vez de aceitar
+// qualquer token (nunca abre a rota "sem querer" por falta de configuração).
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
 
 // Troca de processador de pagamento no futuro = trocar só esta linha por outra classe
 // que implemente a mesma interface PaymentProvider. Nada abaixo precisa mudar.
@@ -236,6 +240,10 @@ app.post("/api/enhance-insight", aiLimiter, async (req, res) => {
 // app); Reconectar/Agir e o resto do conteúdo de casal nunca passam por aqui.
 // Cada rota exige um JWT válido do Supabase (ver socialAuth.js).
 app.use("/api/social", socialRouter);
+
+// Rotas de suporte/admin (buscar/forçar status de assinatura) — protegidas
+// por ADMIN_TOKEN (header X-Admin-Token), nunca abertas sem essa var setada.
+app.use("/api/admin", buildAdminRouter({ repository, adminToken: ADMIN_TOKEN }));
 
 // Web Push — o app Cosmic Guide roda só como web (sem publicação em loja),
 // então notificação de celular só existe através disso (ver lib/webPush.js no
