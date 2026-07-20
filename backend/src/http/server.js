@@ -291,6 +291,24 @@ app.post("/api/push/subscribe", pushLimiter, (req, res) => {
   }
 });
 
+app.post("/api/push/sync-streak", pushLimiter, (req, res) => {
+  try {
+    const { endpoint, lastActiveDate, currentStreak } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: "endpoint é obrigatório" });
+    if (typeof lastActiveDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(lastActiveDate)) {
+      return res.status(400).json({ error: "lastActiveDate deve ser YYYY-MM-DD" });
+    }
+    if (!Number.isInteger(currentStreak) || currentStreak < 0) {
+      return res.status(400).json({ error: "currentStreak deve ser um inteiro >= 0" });
+    }
+    pushRepository.updateStreak({ endpoint, lastActiveDate, currentStreak });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[api/push/sync-streak] erro:", err.message);
+    res.status(500).json({ error: "falha ao sincronizar sequência" });
+  }
+});
+
 app.post("/api/push/unsubscribe", pushLimiter, (req, res) => {
   try {
     const { endpoint } = req.body || {};

@@ -30,6 +30,17 @@ class PushSubscriptionRepository {
   all() {
     return db.prepare("SELECT * FROM push_subscriptions").all();
   }
+
+  // Sincroniza o estado real de sequência (lib/streak.js, AsyncStorage local)
+  // pro servidor poder decidir quem notificar à noite (achado real de
+  // auditoria/melhoria, 19/07/2026). Silenciosamente ignora se o endpoint não
+  // existir (ex.: inscrição já removida) — nunca lança, quem chama trata como
+  // fire-and-forget.
+  updateStreak({ endpoint, lastActiveDate, currentStreak }) {
+    db.prepare(
+      "UPDATE push_subscriptions SET last_active_date = ?, current_streak = ? WHERE endpoint = ?"
+    ).run(lastActiveDate, currentStreak, endpoint);
+  }
 }
 
 module.exports = { PushSubscriptionRepository };
