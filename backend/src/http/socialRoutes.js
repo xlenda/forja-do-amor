@@ -139,7 +139,7 @@ router.post("/follow/:userId", writeLimiter, (req, res) => {
 
 router.delete("/follow/:userId", writeLimiter, (req, res) => {
   db.prepare("DELETE FROM social_follows WHERE follower_id = ? AND followee_id = ?").run(req.userId, req.params.userId);
-  res.json({ ok: true });
+  res.status(204).send();
 });
 
 // Feed = posts de quem eu sigo + meus próprios posts, mais recentes primeiro.
@@ -156,6 +156,9 @@ router.get("/feed", (req, res) => {
   if (!Number.isFinite(limit) || limit < 1) limit = 20;
   limit = Math.min(limit, 50);
 
+  // Busca limit+1 e corta o extra antes de responder — só assim dá pra saber
+  // se existe próxima página sem o client precisar fazer uma chamada vazia
+  // a mais só pra descobrir que acabou.
   const rows = db
     .prepare(
       `SELECT p.id, p.user_id, p.reading_type, p.title, p.body, p.created_at,
@@ -170,9 +173,11 @@ router.get("/feed", (req, res) => {
        ORDER BY p.id DESC
        LIMIT ?`
     )
-    .all(req.userId, before, req.userId, req.userId, limit);
+    .all(req.userId, before, req.userId, req.userId, limit + 1);
 
-  res.json({ posts: rows.map((r) => ({ ...r, liked_by_me: !!r.liked_by_me })) });
+  const hasNext = rows.length > limit;
+  const posts = rows.slice(0, limit).map((r) => ({ ...r, liked_by_me: !!r.liked_by_me }));
+  res.json({ posts, meta: { has_next: hasNext, next_cursor: hasNext ? posts[posts.length - 1].id : null } });
 });
 
 router.post("/posts", writeLimiter, (req, res) => {
@@ -197,7 +202,7 @@ router.delete("/posts/:id", writeLimiter, (req, res) => {
   db.prepare("DELETE FROM social_posts WHERE id = ?").run(req.params.id);
   db.prepare("DELETE FROM social_likes WHERE post_id = ?").run(req.params.id);
   db.prepare("DELETE FROM social_comments WHERE post_id = ?").run(req.params.id);
-  res.json({ ok: true });
+  res.status(204).send();
 });
 
 router.post("/posts/:id/like", writeLimiter, (req, res) => {
@@ -210,7 +215,7 @@ router.post("/posts/:id/like", writeLimiter, (req, res) => {
 
 router.delete("/posts/:id/like", writeLimiter, (req, res) => {
   db.prepare("DELETE FROM social_likes WHERE post_id = ? AND user_id = ?").run(req.params.id, req.userId);
-  res.json({ ok: true });
+  res.status(204).send();
 });
 
 router.get("/posts/:id/comments", (req, res) => {

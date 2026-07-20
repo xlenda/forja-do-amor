@@ -88,7 +88,11 @@ app.post("/api/checkout/initiate", checkoutLimiter, async (req, res) => {
     const result = await initiateCheckout.execute({ coupleName, customerEmail, plan, amountCents, currency });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Antes vazava err.message cru pro cliente — único lugar da API que fazia
+    // isso, podendo expor detalhe interno (erro de driver do banco, mensagem
+    // de exceção do provider de pagamento). Achado real de auditoria (18/07/2026).
+    console.error("[api/checkout/initiate] erro:", err.message);
+    res.status(500).json({ error: "falha ao iniciar checkout" });
   }
 });
 
@@ -349,6 +353,21 @@ app.post("/webhook/hotmart", webhookLimiter, (req, res) => {
     console.error("[webhook] erro inesperado:", err.message);
     res.json({ ok: false, reason: "erro interno ao processar" });
   }
+});
+
+// Middleware de erro central — precisa ser o ÚLTIMO app.use, depois de toda
+// rota. Sem isso, uma exceção não tratada (ex.: duas requisições simultâneas
+// de PUT /api/social/profile com o mesmo username: as duas passam pela
+// checagem de "já existe" antes de qualquer INSERT terminar, e a segunda
+// esbarra na constraint UNIQUE do banco) sobe pro handler padrão do Express,
+// que devolve HTML — quebrando o contrato {error} que o resto da API segue.
+// Achado real de auditoria (18/07/2026).
+app.use((err, req, res, _next) => {
+  if (err && err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+    return res.status(409).json({ error: "esse valor já está em uso" });
+  }
+  console.error("[erro não tratado]", err && err.message);
+  res.status(500).json({ error: "erro interno" });
 });
 
 app.listen(PORT, () => {
