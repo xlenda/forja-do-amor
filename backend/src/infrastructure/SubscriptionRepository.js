@@ -22,6 +22,7 @@ function toEntity(row) {
     amountCents: row.amount_cents,
     currency: row.currency,
     currentPeriodEnd: row.current_period_end,
+    customerEmail: row.customer_email,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -29,14 +30,29 @@ function toEntity(row) {
 
 class SubscriptionRepository {
   // Chamado ao iniciar o checkout — cria o registro em "pending" antes de qualquer pagamento existir.
-  createPending({ coupleName, provider, plan, amountCents, currency }) {
+  createPending({ coupleName, provider, plan, amountCents, currency, customerEmail }) {
     const correlationCode = generateCorrelationCode();
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO subscriptions (correlation_code, couple_name, status, provider, plan, amount_cents, currency, created_at, updated_at)
-      VALUES (@correlationCode, @coupleName, 'pending', @provider, @plan, @amountCents, @currency, @now, @now)
-    `).run({ correlationCode, coupleName: coupleName || null, provider, plan: plan || null, amountCents: amountCents || null, currency: currency || null, now });
+      INSERT INTO subscriptions (correlation_code, couple_name, status, provider, plan, amount_cents, currency, customer_email, created_at, updated_at)
+      VALUES (@correlationCode, @coupleName, 'pending', @provider, @plan, @amountCents, @currency, @customerEmail, @now, @now)
+    `).run({
+      correlationCode,
+      coupleName: coupleName || null,
+      provider,
+      plan: plan || null,
+      amountCents: amountCents || null,
+      currency: currency || null,
+      customerEmail: customerEmail || null,
+      now,
+    });
     return this.findByCorrelationCode(correlationCode);
+  }
+
+  // Suporte sem correlationCode em mãos — só o que o cliente lembra (e-mail).
+  findByCustomerEmail(customerEmail) {
+    const rows = db.prepare("SELECT * FROM subscriptions WHERE customer_email = ? ORDER BY created_at DESC").all(customerEmail);
+    return rows.map(toEntity);
   }
 
   findByCorrelationCode(correlationCode) {

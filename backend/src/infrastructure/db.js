@@ -97,5 +97,36 @@ CREATE TABLE IF NOT EXISTS social_comments (
 );
 CREATE INDEX IF NOT EXISTS idx_social_comments_post ON social_comments(post_id);
 `);
+// ↑ Baseline congelado (user_version=0) — daqui pra frente, TODA mudança de
+// schema vira um arquivo numerado em migrations/, nunca uma edição deste
+// bloco nem um ALTER TABLE manual via SSH (ver migrations/README.md).
+// Achado real de auditoria (18/07/2026): sem isso, o primeiro ALTER TABLE
+// numa tabela com dado real (ex.: subscriptions, dinheiro de assinante)
+// ficaria sem versionamento nem registro do que foi feito.
+
+const MIGRATIONS_DIR = path.join(__dirname, "migrations");
+
+function runMigrations() {
+  const currentVersion = db.pragma("user_version", { simple: true });
+  if (!fs.existsSync(MIGRATIONS_DIR)) return;
+
+  const files = fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => /^\d+_.*\.sql$/.test(f))
+    .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+  for (const file of files) {
+    const version = parseInt(file, 10);
+    if (version <= currentVersion) continue;
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
+    const applyMigration = db.transaction(() => {
+      db.exec(sql);
+      db.pragma(`user_version = ${version}`);
+    });
+    applyMigration();
+    console.log(`[migrations] aplicada: ${file} (user_version=${version})`);
+  }
+}
+runMigrations();
 
 module.exports = { db };

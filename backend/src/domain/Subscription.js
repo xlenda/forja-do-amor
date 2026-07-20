@@ -35,6 +35,7 @@ class Subscription {
     amountCents,
     currency,
     currentPeriodEnd,
+    customerEmail,
     createdAt,
     updatedAt,
   }) {
@@ -48,6 +49,7 @@ class Subscription {
     this.amountCents = amountCents;
     this.currency = currency;
     this.currentPeriodEnd = currentPeriodEnd;
+    this.customerEmail = customerEmail;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }

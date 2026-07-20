@@ -11,6 +11,7 @@ class InitiateCheckoutUseCase {
       plan,
       amountCents,
       currency,
+      customerEmail,
     });
 
     const checkoutConfig = await this.paymentProvider.initiateCheckout({
