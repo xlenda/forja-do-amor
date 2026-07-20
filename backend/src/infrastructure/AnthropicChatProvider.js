@@ -177,6 +177,34 @@ const WEEKLY_SUMMARY_OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+// Generalização do resumo semanal (antes só existia pro café): agora aceita
+// leituras de QUALQUER tipo do Diário Cósmico (tarô, palma, rosto, pé,
+// pintas, café, sonho) juntas na mesma semana — reaproveita o padrão já
+// validado do café, mas sem assumir uma tradição específica.
+const WEEKLY_INSIGHT_MODEL = process.env.ANTHROPIC_WEEKLY_INSIGHT_MODEL || "claude-haiku-4-5";
+
+const WEEKLY_INSIGHT_SYSTEM_PROMPT = [
+  "Você ajuda a encontrar um fio condutor entre leituras simbólicas variadas (tarô, quiromancia, fisiognomonia, tasseografia, interpretação de sonhos) dentro do app Cosmic Guide.",
+  "Vai receber as leituras reais que a pessoa recebeu ao longo dos últimos dias, cada uma com seu tipo, título e corpo.",
+  "Escreva em português do Brasil um INSIGHT DA SEMANA: encontre temas ou fios condutores que se repetem entre essas leituras, mesmo vindo de tradições diferentes,",
+  "e escreva uma síntese reflexiva, terminando com uma pergunta que convide a pessoa a olhar pra semana como um todo.",
+  "Nunca invente uma leitura nova — baseie-se só no que já foi lido nos dias anteriores.",
+  "Deixe claro que é uma síntese simbólica, sem cravar eventos específicos ou garantir resultados.",
+].join(" ");
+
+const WEEKLY_INSIGHT_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Título curto do insight da semana, ex.: 'Uma semana de recomeços'" },
+    body: {
+      type: "string",
+      description: "Corpo do insight já formatado: síntese dos temas recorrentes e a pergunta reflexiva no final.",
+    },
+  },
+  required: ["title", "body"],
+  additionalProperties: false,
+};
+
 const ENHANCE_INSIGHT_MODEL = process.env.ANTHROPIC_ENHANCE_INSIGHT_MODEL || "claude-haiku-4-5";
 
 const ENHANCE_INSIGHT_SYSTEM_PROMPT = [
@@ -396,6 +424,31 @@ class AnthropicChatProvider {
         {
           role: "user",
           content: [{ type: "text", text: `Leituras da semana:\n\n${listaTexto}\n\nEscreva a conclusão da semana.` }],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    return JSON.parse(textBlock.text);
+  }
+
+  // readings: array de { type, typeLabel, title, body } — até 7 leituras reais
+  // de QUALQUER tipo (tarô, palma, rosto, pé, pintas, café, sonho), vindas do
+  // Diário Cósmico. Generalização de summarizeCoffeeWeek pra todo o app.
+  async summarizeWeeklyInsight({ readings }) {
+    const listaTexto = readings
+      .map((r, i) => `Leitura ${i + 1} (${r.typeLabel || r.type}) — "${r.title}": ${r.body}`)
+      .join("\n\n");
+
+    const response = await this.client.messages.create({
+      model: WEEKLY_INSIGHT_MODEL,
+      max_tokens: 600,
+      system: WEEKLY_INSIGHT_SYSTEM_PROMPT,
+      output_config: { format: { type: "json_schema", schema: WEEKLY_INSIGHT_OUTPUT_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: `Leituras da semana:\n\n${listaTexto}\n\nEscreva o insight da semana.` }],
         },
       ],
     });
