@@ -6,7 +6,7 @@
   "main": "src/http/server.js",
   "scripts": {
     "start": "node --env-file=.env src/http/server.js",
-    "test": "node --test"
+    "test": "node --experimental-test-module-mocks --test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -18,5 +18,8 @@
     "jose": "^6.2.3",
     "sharp": "^0.35.3",
     "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2"
   }
 }

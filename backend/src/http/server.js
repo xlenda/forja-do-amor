@@ -6,6 +6,7 @@ const { SubscriptionRepository } = require("../infrastructure/SubscriptionReposi
 const { HotmartPaymentProvider } = require("../infrastructure/HotmartPaymentProvider");
 const { AnthropicChatProvider } = require("../infrastructure/AnthropicChatProvider");
 const { PushSubscriptionRepository } = require("../infrastructure/PushSubscriptionRepository");
+const { ConversionTrackingProvider } = require("../infrastructure/ConversionTrackingProvider");
 const { socialRouter } = require("./socialRoutes");
 const { buildAdminRouter } = require("./adminRoutes");
 const { compressImage } = require("../infrastructure/imageProcessing");
@@ -34,6 +35,12 @@ const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "";
 // Sem essa var configurada, /api/admin/* responde 503 em vez de aceitar
 // qualquer token (nunca abre a rota "sem querer" por falta de configuração).
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
+// Confirmação de Purchase server-side (Meta Conversions API) — sem as duas
+// vars configuradas, nenhuma chamada é feita (nunca inventa um Pixel ID nem
+// tenta mandar evento pra um destino que não existe). Ver
+// ConversionTrackingProvider.js e uso em ProcessWebhookUseCase.
+const FB_PIXEL_ID = process.env.FB_PIXEL_ID || "";
+const FB_CONVERSIONS_API_TOKEN = process.env.FB_CONVERSIONS_API_TOKEN || "";
 
 // Troca de processador de pagamento no futuro = trocar só esta linha por outra classe
 // que implemente a mesma interface PaymentProvider. Nada abaixo precisa mudar.
@@ -41,8 +48,13 @@ const paymentProvider = new HotmartPaymentProvider({ hottok: HOTMART_HOTTOK, off
 const repository = new SubscriptionRepository();
 const pushRepository = new PushSubscriptionRepository();
 
+const conversionTracker =
+  FB_PIXEL_ID && FB_CONVERSIONS_API_TOKEN
+    ? new ConversionTrackingProvider({ pixelId: FB_PIXEL_ID, accessToken: FB_CONVERSIONS_API_TOKEN })
+    : null;
+
 const initiateCheckout = new InitiateCheckoutUseCase(repository, paymentProvider);
-const processWebhook = new ProcessWebhookUseCase(repository, paymentProvider);
+const processWebhook = new ProcessWebhookUseCase(repository, paymentProvider, conversionTracker);
 const getSubscriptionStatus = new GetSubscriptionStatusUseCase(repository);
 
 // Sem chave configurada, os endpoints /api/chat, /api/palm, /api/coffee e /api/dream
@@ -96,7 +108,19 @@ app.post("/api/checkout/initiate", checkoutLimiter, async (req, res) => {
   }
 });
 
-app.get("/api/subscription/:correlationCode", (req, res) => {
+// Única rota pública sem rate limiter até então — checkout, IA, webhook,
+// push e admin já tinham o seu. Consulta pública (não exige nenhuma prova de
+// posse do correlationCode) e barata o bastante pra ser martelada sem
+// limite. Achado real de auditoria (19/07/2026).
+const publicReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições — tente novamente em alguns minutos." },
+});
+
+app.get("/api/subscription/:correlationCode", publicReadLimiter, (req, res) => {
   const result = getSubscriptionStatus.execute({ correlationCode: req.params.correlationCode });
   if (!result) return res.status(404).json({ error: "não encontrado" });
   res.json(result);
@@ -267,11 +291,36 @@ app.get("/api/push/vapid-public-key", (_req, res) => {
   res.json({ publicKey: VAPID_PUBLIC_KEY });
 });
 
+// Sem essa allowlist, /api/push/subscribe (rota pública, sem auth — qualquer
+// pessoa pode registrar um Web Push do próprio navegador) aceitava QUALQUER
+// string como endpoint. Os crons diários (send-daily-push.js,
+// send-streak-risk-push.js) chamam webpush.sendNotification pra cada
+// endpoint salvo, então um endpoint apontando pra um IP/porta interna do VPS
+// (compartilhado com outros processos pm2) faria o servidor disparar uma
+// requisição HTTPS pra lá todo dia — SSRF cego. Só os serviços de push reais
+// dos navegadores suportados chegam até aqui de verdade; qualquer outra
+// coisa é sempre uma tentativa de abuso, nunca um caso de uso legítimo.
+const ALLOWED_PUSH_HOSTS = ["fcm.googleapis.com", "updates.push.services.mozilla.com", "web.push.apple.com"];
+function isAllowedPushEndpoint(endpoint) {
+  let url;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  if (ALLOWED_PUSH_HOSTS.includes(url.hostname)) return true;
+  return url.hostname.endsWith(".notify.windows.com");
+}
+
 app.post("/api/push/subscribe", pushLimiter, (req, res) => {
   try {
     const { subscription, sign } = req.body || {};
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return res.status(400).json({ error: "subscription (endpoint + keys) é obrigatório" });
+    }
+    if (!isAllowedPushEndpoint(subscription.endpoint)) {
+      return res.status(400).json({ error: "subscription.endpoint inválido" });
     }
     const { p256dh, auth } = subscription.keys;
     if (!p256dh || !auth) return res.status(400).json({ error: "subscription.keys.p256dh e .auth são obrigatórios" });
@@ -414,6 +463,15 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: "erro interno" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Forja del Amor backend rodando na porta ${PORT}`);
-});
+// require.main === module só é true quando este arquivo é executado
+// diretamente (pm2/npm start) — quando um teste faz require("../src/http/server").app
+// pra rodar contra supertest, o processo não sobe outro listener na mesma
+// porta (nem precisa: supertest injeta requisições direto no app, sem porta
+// TCP nenhuma).
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Forja del Amor backend rodando na porta ${PORT}`);
+  });
+}
+
+module.exports = { app };

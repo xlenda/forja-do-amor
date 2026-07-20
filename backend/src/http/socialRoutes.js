@@ -21,6 +21,21 @@ const writeLimiter = rateLimit({
   message: { error: "Muitas requisições — tente novamente em alguns minutos." },
 });
 
+// GET /profile/me, GET /users/:userId, GET /feed e GET /posts/:id/comments
+// eram as únicas rotas deste router sem limite nenhum — /feed roda 3
+// subqueries por linha e /users/:userId roda 3 queries por chamada, então
+// martelar qualquer uma delas sem limite pressiona o único processo
+// Express/SQLite do servidor. Mais generoso que writeLimiter porque leitura
+// é o uso normal da tela (ex.: pull-to-refresh do feed), não uma ação
+// pontual. Achado real de auditoria (19/07/2026).
+const readLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições — tente novamente em alguns minutos." },
+});
+
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 const TITLE_MAX = 120;
 const BODY_MAX = 2000;
@@ -57,7 +72,7 @@ function canViewPosts(viewerId, authorId) {
 
 // Toda rota abaixo assume req.userId já verificado por requireAuth.
 
-router.get("/profile/me", (req, res) => {
+router.get("/profile/me", readLimiter, (req, res) => {
   res.json({ profile: profileOrNull(req.userId) });
 });
 
@@ -108,7 +123,7 @@ router.get("/search", writeLimiter, (req, res) => {
   res.json({ profiles: rows });
 });
 
-router.get("/users/:userId", (req, res) => {
+router.get("/users/:userId", readLimiter, (req, res) => {
   const profile = profileOrNull(req.params.userId);
   if (!profile) return res.status(404).json({ error: "perfil não encontrado" });
   const followers = db.prepare("SELECT COUNT(*) c FROM social_follows WHERE followee_id = ?").get(req.params.userId).c;
@@ -145,7 +160,7 @@ router.delete("/follow/:userId", writeLimiter, (req, res) => {
 // Feed = posts de quem eu sigo + meus próprios posts, mais recentes primeiro.
 // `before` (id de post) pagina pro passado — evita ORDER BY OFFSET caro à
 // medida que o feed cresce.
-router.get("/feed", (req, res) => {
+router.get("/feed", readLimiter, (req, res) => {
   // `|| valorPadrão` não pega valor negativo (ex.: -1 é truthy em JS) — e o
   // SQLite trata LIMIT negativo como "sem limite nenhum", então
   // GET /feed?limit=-1 devolvia TODOS os posts visíveis, ignorando o teto de
@@ -218,7 +233,7 @@ router.delete("/posts/:id/like", writeLimiter, (req, res) => {
   res.status(204).send();
 });
 
-router.get("/posts/:id/comments", (req, res) => {
+router.get("/posts/:id/comments", readLimiter, (req, res) => {
   const post = db.prepare("SELECT user_id FROM social_posts WHERE id = ?").get(req.params.id);
   if (!post) return res.status(404).json({ error: "post não encontrado" });
   if (!canViewPosts(req.userId, post.user_id)) return res.status(403).json({ error: "sem acesso a este post" });

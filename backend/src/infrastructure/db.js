@@ -7,6 +7,13 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(path.join(DATA_DIR, "forja.sqlite"));
 db.pragma("journal_mode = WAL");
+// Sem isso, duas conexões concorrentes nesse mesmo arquivo (processo
+// principal + scripts/backup-db.js + scripts/send-daily-push.js +
+// scripts/send-streak-risk-push.js, todos via cron) colidindo numa escrita
+// recebem SQLITE_BUSY na hora (busy_timeout padrão é 0) em vez de esperar a
+// outra conexão liberar — no processo principal isso vira um 500 real pra
+// uma colisão que se resolveria sozinha esperando poucos ms.
+db.pragma("busy_timeout = 5000");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS subscriptions (

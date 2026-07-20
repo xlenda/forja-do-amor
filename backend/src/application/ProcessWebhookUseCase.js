@@ -1,7 +1,11 @@
 class ProcessWebhookUseCase {
-  constructor(repository, paymentProvider) {
+  constructor(repository, paymentProvider, conversionTracker) {
     this.repository = repository;
     this.paymentProvider = paymentProvider;
+    // Opcional — null quando FB_PIXEL_ID/FB_CONVERSIONS_API_TOKEN não estão
+    // configurados (ver server.js). Nunca bloqueia nem derruba o
+    // processamento do webhook (achado real de auditoria, 19/07/2026).
+    this.conversionTracker = conversionTracker || null;
   }
 
   // rawBody: string bruta (necessária pra validar assinatura); headers: headers HTTP; payload: JSON já parseado.
@@ -94,6 +98,22 @@ class ProcessWebhookUseCase {
     // salva — se uma reentrega chegar entre o save() e aqui (nunca acontece
     // de fato, é síncrono, mas por clareza), a reentrega ainda seria pega.
     this.repository.markEventProcessed(event.eventId);
+
+    // Purchase = primeira ativação real (pending -> active), nunca uma
+    // renovação nem qualquer outra transição. Fire-and-forget: execute()
+    // é síncrono (better-sqlite3) e o Hotmart precisa de resposta rápida do
+    // webhook — uma falha na Conversions API (rede, token revogado) nunca
+    // pode atrasar nem derrubar o processamento real da compra.
+    if (this.conversionTracker && fromStatus === "pending" && subscription.status === "active") {
+      this.conversionTracker
+        .trackPurchase({
+          correlationCode: event.correlationCode,
+          amountCents: subscription.amountCents,
+          currency: subscription.currency,
+          customerEmail: subscription.customerEmail,
+        })
+        .catch((err) => console.error("[conversion-tracking] falha ao enviar Purchase:", err.message));
+    }
 
     return { ok: true, status: subscription.status };
   }
